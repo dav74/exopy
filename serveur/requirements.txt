@@ -1,0 +1,28 @@
+# Core Framework
+fastapi==0.114.1
+uvicorn[standard]==0.30.6
+pydantic==2.12.4
+pydantic-settings==2.5.2
+python-multipart==0.0.9
+
+# Database
+psycopg2-binary==2.9.10
+
+# Authentication
+python-jose[cryptography]==3.5.0
+passlib[bcrypt]==1.7.4
+bcrypt==3.2.2
+
+# LLM & AI (LangChain/OpenRouter)
+langchain==0.3.21
+langchain-core==0.3.80
+langchain-community==0.3.20
+langchain-openai>=0.3.18
+langgraph==0.6.6
+
+# Utilities
+python-dotenv==1.0.1
+httpx==0.28.1
+
+# Scripts & PDF Generation
+fpdf2==2.8.2

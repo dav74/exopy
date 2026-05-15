@@ -1,0 +1,1001 @@
+[
+  {
+    "id": 105,
+    "titre": "alternance",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `alternance` qui prend en paramètre un tableau non vide d'entiers `tab` et renvoie `True` si les éléments du tableau alternent strictement entre pair et impair (ou impair et pair), et `False` sinon. (Un tableau à 1 élément renvoie `True`).  \nExemples :  \n```\n>>> alternance([1, 2, 3, 4])\nTrue\n>>> alternance([2, 5, 8, 11])\nTrue\n>>> alternance([1, 3, 2])\nFalse\n```",
+    "test": "c = \"\"\nif alternance([1, 2, 3, 4]) == True:\n    c += \"1\"\nelse:\n    c += \"0\"\nif alternance([2, 5, 8, 11]) == True:\n    c += \"1\"\nelse:\n    c += \"0\"\nif alternance([1, 3, 2]) == False:\n    c += \"1\"\nelse:\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:59.849109+00:00",
+    "ordering": 0
+  },
+  {
+    "id": 61,
+    "titre": "(T) parcours préfixe d'un arbre binaire",
+    "niveau": 3,
+    "enonce": "Écrire une fonction `parcours_prefixe` qui prend en paramètre une instance de la classe `arbre T` et renvoie un tableau (de type list) contenant les valeurs des noeuds de l'arbre `T` classés dans un ordre compatible avec un parcours préfixe de l'arbre binaire `T`.  \nLa classe `Arbre` possède 3 méthodes :  \n- `get_gauche()` renvoie l'arbre gauche  \n- `get_droit()` renvoie l'arbre droit  \n- `get_valeur()` renvoie la valeur du noeud",
+    "test": "class ArbreBinaire:\n    def __init__(self, valeur):\n        self.valeur = valeur\n        self.enfant_gauche = None\n        self.enfant_droit = None   \n    def insert_gauche(self, valeur):\n        if self.enfant_gauche == None:\n            self.enfant_gauche = ArbreBinaire(valeur)\n        else:\n            new_node = ArbreBinaire(valeur)\n            new_node.enfant_gauche = self.enfant_gauche\n            self.enfant_gauche = new_node\n    def insert_droit(self, valeur):\n        if self.enfant_droit == None:\n            self.enfant_droit = ArbreBinaire(valeur)\n        else:\n            new_node = ArbreBinaire(valeur)\n            new_node.enfant_droit = self.enfant_droit\n            self.enfant_droit = new_node\n    def get_valeur(self):\n        return self.valeur    \n    def get_gauche(self):\n        return self.enfant_gauche\n    def get_droit(self):\n        return self.enfant_droit\nracine = ArbreBinaire('A')\nracine.insert_gauche('B')\nracine.insert_droit('F')\n\nb_node = racine.get_gauche()\nb_node.insert_gauche('C')\nb_node.insert_droit('D')\n\nf_node = racine.get_droit()\nf_node.insert_gauche('G')\nf_node.insert_droit('H')\n\nc_node = b_node.get_gauche()\nc_node.insert_droit('E')\n\ng_node = f_node.get_gauche()\ng_node.insert_gauche('I')\n\nh_node = f_node.get_droit()\nh_node.insert_droit('J')\nc = \"\"\nif parcours_prefixe(racine) == ['A', 'B', 'C', 'E', 'D', 'F', 'G', 'I', 'H', 'J']:\n    c += \"1\"\nelse  :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:57.023824+00:00",
+    "ordering": 1
+  },
+  {
+    "id": 42,
+    "titre": "sélection enclos",
+    "niveau": 3,
+    "enonce": "On considère des tables, c’est-à-dire des tableaux de dictionnaires ayant tous les mêmes clés, qui contiennent des enregistrements relatifs à des animaux hébergés dans un refuge. Les attributs des enregistrements sont 'nom', 'espece', 'age', 'enclos'.  \nVoici un exemple d’une telle table :  \n```\nanimaux = [ {'nom':'Medor', 'espece':'chien', 'age':5, 'enclos':2}, {'nom':'Titine', 'espece':'chat', 'age':2, 'enclos':5}, {'nom':'Tom', 'espece':'chat', 'age':7, 'enclos':4}, {'nom':'Belle', 'espece':'chien', 'age':6, 'enclos':3}, {'nom':'Mirza', 'espece':'chat', 'age':6, 'enclos':5}]\n```\nProgrammer une fonction `selection_enclos` qui :  \nprend en paramètres : une table animaux contenant des enregistrements relatifs à des animaux (comme dans l’exemple ci-dessus) et un numéro d’enclos num_enclos ;  \nLa fonction renvoie une table contenant les enregistrements de animaux dont l’attribut 'enclos' est `num_enclos`.  \nExemples avec la table animaux ci-dessus :  \n```\n>>> selection_enclos(animaux, 5)\n[{'nom':'Titine', 'espece':'chat', 'age':2, 'enclos':5},\n{'nom':'Mirza', 'espece':'chat', 'age':6, 'enclos':5}]\n>>> selection_enclos(animaux, 2)\n[{'nom':'Medor', 'espece':'chien', 'age':5, 'enclos':2}]\n>>> selection_enclos(animaux, 7)\n[]\n```",
+    "test": "c=\"\"\nanimaux = [ {'nom':'Medor', 'espece':'chien', 'age':5, 'enclos':2}, {'nom':'Titine', 'espece':'chat', 'age':2, 'enclos':5}, {'nom':'Tom', 'espece':'chat', 'age':7, 'enclos':4}, {'nom':'Belle', 'espece':'chien', 'age':6, 'enclos':3}, {'nom':'Mirza', 'espece':'chat', 'age':6, 'enclos':5}]\nif selection_enclos(animaux, 5)== [{'nom':'Titine', 'espece':'chat', 'age':2, 'enclos':5}, {'nom':'Mirza', 'espece':'chat', 'age':6, 'enclos':5}]:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif selection_enclos(animaux, 2) == [{'nom':'Medor', 'espece':'chien', 'age':5, 'enclos':2}]:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif  selection_enclos(animaux, 7) == []:\n    c+=\"1\"\nelse  :\n    c+=\"0\"",
+    "created_at": "2026-03-15T20:36:55.869125+00:00",
+    "ordering": 2
+  },
+  {
+    "id": 90,
+    "titre": "est divisible par tous",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `est_divisible_par_tous` qui prend en paramètre un entier `n` et un tableau d'entiers diviseurs (type list). La fonction doit renvoyer `True` si n est divisible par tous les éléments du tableau diviseurs, et `False` sinon. Si le tableau diviseurs est vide, la fonction doit renvoyer `True`.  \nExemples :  \n```\n>>> est_divisible_par_tous(10, [2, 5])\nTrue\n>>> est_divisible_par_tous(12, [2, 3, 4])\nTrue\n>>> est_divisible_par_tous(15, [2, 5])\nFalse\n>>> est_divisible_par_tous(7, [])\nTrue\n```",
+    "test": "c = \"\"\nif est_divisible_par_tous(10, [2, 5]):\n c += \"1\"\nelse:\n c += \"0\"\nif est_divisible_par_tous(12, [2, 3, 4]):\n c += \"1\"\nelse:\n c += \"0\"\nif not est_divisible_par_tous(15, [2, 5]):\n c += \"1\"\nelse:\n c += \"0\"\nif est_divisible_par_tous(7, []):\n c += \"1\"\nelse:\n c += \"0\"",
+    "created_at": "2026-03-15T20:36:58.873369+00:00",
+    "ordering": 3
+  },
+  {
+    "id": 113,
+    "titre": "Analyse de Séquences ADN",
+    "niveau": 3,
+    "enonce": "On travaille avec des séquences d'ADN représentées par des chaînes de caractères composées des bases 'A', 'T', 'C' et 'G'.\n\nÉcrivez une fonction `analyse_adn(sequence)` qui prend en entrée une séquence d'ADN (une chaîne de caractères) et retourne un dictionnaire contenant :\n\n*   `'longueur'`: La longueur totale de la séquence.\n*   `'composition'`: Un dictionnaire indiquant le pourcentage de chaque base ('A', 'T', 'C', 'G') dans la séquence. Les pourcentages doivent être arrondis à deux décimales.\n*   `'gc_content'`: Le pourcentage de bases Guanine (G) et Cytosine (C) dans la séquence, arrondi à deux décimales.\n\nExemple:\n\n```python\n>>> analyse_adn(\"ATGCGA\")\n{'longueur': 6, 'composition': {'A': 33.33, 'T': 16.67, 'G': 33.33, 'C': 16.67}, 'gc_content': 50.0}\n```\n\nAssurez-vous de gérer les cas où la séquence est vide. Dans ce cas, la composition doit être un dictionnaire avec des pourcentages de 0.0 pour chaque base et gc_content doit être 0.0.",
+    "test": "c = \"\"\nimport math\n\ndef approx_equal(a, b, rel_tol=1e-9, abs_tol=0.0):\n    return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)\n\ntry:\n    result1 = analyse_adn(\"ATGCGA\")\n    if result1['longueur'] == 6 and approx_equal(result1['composition']['A'], 33.33, abs_tol=0.01) and approx_equal(result1['composition']['T'], 16.67, abs_tol=0.01) and approx_equal(result1['composition']['G'], 33.33, abs_tol=0.01) and approx_equal(result1['composition']['C'], 16.67, abs_tol=0.01) and approx_equal(result1['gc_content'], 50.0, abs_tol=0.01):\n        c += \"1\"\n    else:\n        c += \"0\"\nexcept:\n    c += \"0\"\n\ntry:\n    result2 = analyse_adn(\"\")\n    if result2['longueur'] == 0 and result2['composition']['A'] == 0.0 and result2['composition']['T'] == 0.0 and result2['composition']['G'] == 0.0 and result2['composition']['C'] == 0.0 and result2['gc_content'] == 0.0:\n        c += \"1\"\n    else:\n        c += \"0\"\nexcept:\n    c += \"0\"\n\ntry:\n    result3 = analyse_adn(\"AAAA\")\n    if result3['longueur'] == 4 and approx_equal(result3['composition']['A'], 100.0, abs_tol=0.01) and result3['composition']['T'] == 0.0 and result3['composition']['G'] == 0.0 and result3['composition']['C'] == 0.0 and result3['gc_content'] == 0.0:\n        c += \"1\"\n    else:\n        c += \"0\"\nexcept:\n    c += \"0\"\n\ntry:\n    result4 = analyse_adn(\"GCGCGC\")\n    if result4['longueur'] == 6 and result4['composition']['A'] == 0.0 and result4['composition']['T'] == 0.0 and approx_equal(result4['composition']['G'], 50.0, abs_tol=0.01) and approx_equal(result4['composition']['C'], 50.0, abs_tol=0.01) and approx_equal(result4['gc_content'], 100.0, abs_tol=0.01):\n        c += \"1\"\n    else:\n        c += \"0\"\nexcept:\n    c += \"0\"\n\ntry:\n    result5 = analyse_adn(\"ATCG\")\n    if result5['longueur'] == 4 and approx_equal(result5['composition']['A'], 25.0, abs_tol=0.01) and approx_equal(result5['composition']['T'], 25.0, abs_tol=0.01) and approx_equal(result5['composition']['G'], 25.0, abs_tol=0.01) and approx_equal(result5['composition']['C'], 25.0, abs_tol=0.01) and approx_equal(result5['gc_content'], 50.0, abs_tol=0.01):\n        c += \"1\"\n    else:\n        c += \"0\"\nexcept:\n    c += \"0\"",
+    "created_at": "2026-03-17T12:01:20.298541+00:00",
+    "ordering": 4
+  },
+  {
+    "id": 46,
+    "titre": "énumère",
+    "niveau": 3,
+    "enonce": "Écrire une fonction `enumere` qui prend en paramètre un tableau `tab` (typelist) et renvoie un dictionnaire `d` dont les clés sont les éléments de `tab` avec pour valeur associée la liste des indices de l’élément dans le tableau `tab`.  \nExemple :  \n```\n>>> enumere([])\n{}\n>>> enumere([1, 2, 3])\n{1: [0], 2: [1], 3: [2]}\n>>> enumere([1, 1, 2, 3, 2, 1])\n{1: [0, 1, 5], 2: [2, 4], 3: [3]}\n```",
+    "test": "c=\"\"\nif enumere([])== {}:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif enumere([1, 2, 3]) == {1: [0], 2: [1], 3: [2]}:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif  enumere([1, 1, 2, 3, 2, 1]) == {1: [0, 1, 5], 2: [2, 4], 3: [3]}:\n    c+=\"1\"\nelse  :\n    c+=\"0\"",
+    "created_at": "2026-03-15T20:36:56.121574+00:00",
+    "ordering": 5
+  },
+  {
+    "id": 102,
+    "titre": "deuxieme plus grand",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `deuxieme_plus_grand` qui prend en paramètre un tableau non vide d'entiers distincts `tab` (contenant au moins deux éléments) et qui renvoie la valeur du deuxième plus grand élément. Il est interdit d'utiliser la méthode `sort` ou les fonctions `sorted` et `max`.  \nExemples :  \n```\n>>> deuxieme_plus_grand([5, 20, 10, 15])\n15\n>>> deuxieme_plus_grand([-5, -10, -2])\n-5\n>>> deuxieme_plus_grand([1, 2])\n1\n```",
+    "test": "c = \"\"\nif deuxieme_plus_grand([5, 20, 10, 15]) == 15:\n    c += \"1\"\nelse:\n    c += \"0\"\nif deuxieme_plus_grand([-5, -10, -2]) == -5:\n    c += \"1\"\nelse:\n    c += \"0\"\nif deuxieme_plus_grand([1, 2]) == 1:\n    c += \"1\"\nelse:\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:59.662998+00:00",
+    "ordering": 6
+  },
+  {
+    "id": 2,
+    "titre": "moyenne",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `moyenne` qui prend en paramètre un tableau non vide d'entiers `tab` et qui renvoie la moyenne de ces entiers.  \nIl est interdit d'utiliser la fonction Python `sum`  \nExemple :  \n```\n>>> moyenne([10, 15, 20])\n15.0\n>>> moyenne([8, 11, 17, 10])\n11.5\n```",
+    "test": "c = \"\"\nif moyenne([10, 15, 20]) == 15.0:\n    c += \"1\"\nelse :\n    c += \"0\"\nif moyenne([8, 11, 17, 10]) == 11.5:\n    c += \"1\"\nelse :\n    c += \"0\"\nif moyenne([5, 15]) == 10.0:\n    c += '1'\nelse:\n    c += '0'\nif moyenne([10, 20, 30, 40]) == 25.0:\n    c += \"1\"\nelse :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:53.266222+00:00",
+    "ordering": 7
+  },
+  {
+    "id": 115,
+    "titre": "L'aventure du pirate",
+    "niveau": 2,
+    "enonce": "Un pirate a caché son butin et a laissé un message codé pour indiquer où il se trouve. Le message est une chaîne de caractères où chaque lettre représente une direction. Voici les codes :\n\n*   'N' : Nord\n*   'S' : Sud\n*   'E' : Est\n*   'O' : Ouest\n\nÉtant donné une chaîne de caractères représentant le message du pirate, écrivez une fonction `decode_tresor(message)` qui retourne un tuple contenant la position finale du trésor. La position initiale est (0, 0). Le Nord augmente la coordonnée y, le Sud diminue la coordonnée y, l'Est augmente la coordonnée x, et l'Ouest diminue la coordonnée x.\n\nPar exemple:\n\n```\n>>> decode_tresor(\"NNEE\")\n(2, 2)\n>>> decode_tresor(\"SSOO\")\n(-2, -2)\n>>> decode_tresor(\"NSNS\")\n(0, 0)\n>>> decode_tresor(\"EOS\")\n(0, -1)\n```\n",
+    "test": "c = \"\"\n\ntry:\n    if decode_tresor(\"NNEE\") == (2, 2):\n        c += \"1\"\n    else:\n        c += \"0\"\nexcept:\n    c += \"0\"\n\ntry:\n    if decode_tresor(\"SSOO\") == (-2, -2):\n        c += \"1\"\n    else:\n        c += \"0\"\nexcept:\n    c += \"0\"\n\ntry:\n    if decode_tresor(\"NSNS\") == (0, 0):\n        c += \"1\"\n    else:\n        c += \"0\"\nexcept:\n    c += \"0\"\n\ntry:\n    if decode_tresor(\"EOS\") == (0, -1):\n        c += \"1\"\n    else:\n        c += \"0\"\nexcept:\n    c += \"0\"\n\ntry:\n    if decode_tresor(\"NEEESSO\") == (2, -1):\n        c += \"1\"\n    else:\n        c += \"0\"\nexcept:\n    c += \"0\"\n",
+    "created_at": "2026-03-17T12:27:54.791924+00:00",
+    "ordering": 8
+  },
+  {
+    "id": 5,
+    "titre": "mot de passe valide",
+    "niveau": 1,
+    "enonce": "Écrire une fonction `mdp_valide` qui prend en paramètre une chaîne de caractères `mot_de_passe` et renvoie `True` si celui-ci comporte au moins 8 caractères, et `False` sinon.  \nExemples :  \n```\n>>> mdp_valide('1234567')\nFalse\n>>> mdp_valide('12345678')\nTrue\n>>> mdp_valide('MonSuperMDP12')\nTrue\n```",
+    "test": "c = \"\"\nif mdp_valide('1234567') == False:\n    c += \"1\"\nelse:\n    c += \"0\"\nif mdp_valide('12345678') == True:\n    c += \"1\"\nelse:\n    c += \"0\"\nif mdp_valide('MonSuperMDP12') == True:\n    c += \"1\"\nelse:\n    c += \"0\"\nif mdp_valide('abc') == False:\n    c += '1'\nelse:\n    c += '0'",
+    "created_at": "2026-03-15T20:36:53.501575+00:00",
+    "ordering": 9
+  },
+  {
+    "id": 74,
+    "titre": "plus grand écart",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `plus_grand_ecart` qui prend en paramètre un tableau de nombres `tab` (type list) non vide et qui renvoie le plus grand écart entre deux nombres consécutifs de ce tableau. L'écart entre deux nombres est la valeur absolue de leur différence.  \nExemples :  \n```\n>>> plus_grand_ecart([1, 5, 2, 8, 2])\n6\n>>> plus_grand_ecart([1, 2, 3, 4, 5])\n1\n>>> plus_grand_ecart([5, 4, 3, 2, 1])\n1\n```",
+    "test": "c = \"\"\nif plus_grand_ecart([1, 5, 2, 8, 2]) == 6:\n    c += \"1\"\nelse:\n    c += \"0\"\nif plus_grand_ecart([1, 2, 3, 4, 5]) == 1:\n    c += \"1\"\nelse:\n    c += \"0\"\nif plus_grand_ecart([5, 4, 3, 2, 1]) == 1:\n    c += \"1\"\nelse:\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:57.846131+00:00",
+    "ordering": 10
+  },
+  {
+    "id": 34,
+    "titre": "multiplication",
+    "niveau": 3,
+    "enonce": "Programmer la fonction `multiplication` qui prend en paramètres deux nombres entiers relatifs `n1` et `n2`, et qui renvoie le produit de ces deux nombres.  \nLes seules opérations arithmétiques autorisées sont l’addition et la soustraction.  \nExemples :  \n```\n>>> multiplication(3, 5)\n15\n>>> multiplication(-4, -8)\n32\n>>> multiplication(-2, 6)\n-12\n>>> multiplication(-2, 0)\n0\n```",
+    "test": "c=\"\"\nif multiplication(3, 5) == 15:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif multiplication(-4, -8) == 32:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif multiplication(-2, 6) == -12:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif multiplication(-2, 0) == 0:\n    c+=\"1\"\nelse  :\n    c+=\"0\"",
+    "created_at": "2026-03-15T20:36:55.362288+00:00",
+    "ordering": 11
+  },
+  {
+    "id": 21,
+    "titre": "volume cube",
+    "niveau": 1,
+    "enonce": "Écrire une fonction `volume_cube` qui prend en paramètre un nombre positif `arete` et qui renvoie le volume du cube correspondant.  \nExemples :  \n```\n>>> volume_cube(3)\n27\n>>> volume_cube(10)\n1000\n```",
+    "test": "c = \"\"\nif volume_cube(3) == 27:\n    c += \"1\"\nelse:\n    c += \"0\"\nif volume_cube(10) == 1000:\n    c += \"1\"\nelse:\n    c += \"0\"\nif volume_cube(2) == 8:\n    c += '1'\nelse:\n    c += '0'\nif volume_cube(1) == 1:\n    c += \"1\"\nelse :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:54.53543+00:00",
+    "ordering": 12
+  },
+  {
+    "id": 25,
+    "titre": "(T) parcours largeur arbre",
+    "niveau": 3,
+    "enonce": "Un arbre binaire est soit vide, représenté en Python par la valeur `None`, soit un nœud représenté par un triplet (`g`, `x`, `d`) où `x` est l’étiquette du nœud et `g` et `d` sont les sousarbres gauche et droit.  \nOn souhaite écrire une fonction `parcours_largeur` qui prend en paramètre un arbre binaire et qui renvoie la liste des étiquettes des nœuds de l’arbre parcourus en largeur.  \nExemples :  \n```\n>>> parcours_largeur(( ( (None, 1, None), 2, (None, 3, None) ),4,( (None, 5, None), 6, (None, 7, None) ) ))\n[4, 2, 6, 1, 3, 5, 7]\n```",
+    "test": "c=\"\"\nif parcours_largeur(( ( (None, 1, None), 2, (None, 3, None) ),4,( (None, 5, None), 6, (None, 7, None) ) )) == [4, 2, 6, 1, 3, 5, 7]:\n    c+=\"1\"\nelse  :\n    c+=\"0\"",
+    "created_at": "2026-03-15T20:36:54.780667+00:00",
+    "ordering": 13
+  },
+  {
+    "id": 68,
+    "titre": "dico vers tableau",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `dico_tab` qui prend en paramètre un dictionnaire `d`. Cette fonction renvoie un tableau contenant des tuples, chaque tuple contient en première position une clé du dictionnaire `d` et en deuxième position la valeur associée à cette clé.  \nExemples :  \n```\n>>> dico_tab({\"pommes\" : 3, \"cerises\" : 15, \"fraises\" : 7})\n[(\"pommes\", 3), (\"cerises\", 15), (\"fraises\", 7)]\n>>> dico_tab({\"pêches\" : 2})\n[(\"pêches\", 2)]\n>>> dico_tab({})\n[]\n```",
+    "test": "c = \"\"\nif dico_tab({\"pommes\" : 3, \"cerises\" : 15, \"fraises\" : 7}) == [(\"pommes\", 3), (\"cerises\", 15), (\"fraises\", 7)]:\n    c += \"1\"\nelse  :\n    c += \"0\"\nif dico_tab({\"pêches\" : 2}) == [(\"pêches\", 2)]:\n    c += \"1\"\nelse  :\n    c += \"0\"\nif dico_tab({}) == []:\n    c += \"1\"\nelse  :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:57.485568+00:00",
+    "ordering": 14
+  },
+  {
+    "id": 54,
+    "titre": "(T) parcours suffixe d'un arbre binaire",
+    "niveau": 3,
+    "enonce": "Écrire une fonction `parcours_suffixe qui prend en paramètre une instance de la classe `arbre T` et renvoie un tableau (de type list) contenant les valeurs des noeuds de l'arbre `T` classés dans un ordre compatible avec un parcours suffixe de l'arbre binaire `T`.  \nLa classe `Arbre` possède 3 méthodes :  \n- `get_gauche()` renvoie l'arbre gauche  \n- `get_droit()` renvoie l'arbre droit  \n- `get_valeur()` renvoie la valeur du noeud",
+    "test": "class ArbreBinaire:\n    def __init__(self, valeur):\n        self.valeur = valeur\n        self.enfant_gauche = None\n        self.enfant_droit = None   \n    def insert_gauche(self, valeur):\n        if self.enfant_gauche == None:\n            self.enfant_gauche = ArbreBinaire(valeur)\n        else:\n            new_node = ArbreBinaire(valeur)\n            new_node.enfant_gauche = self.enfant_gauche\n            self.enfant_gauche = new_node\n    def insert_droit(self, valeur):\n        if self.enfant_droit == None:\n            self.enfant_droit = ArbreBinaire(valeur)\n        else:\n            new_node = ArbreBinaire(valeur)\n            new_node.enfant_droit = self.enfant_droit\n            self.enfant_droit = new_node\n    def get_valeur(self):\n        return self.valeur    \n    def get_gauche(self):\n        return self.enfant_gauche\n    def get_droit(self):\n        return self.enfant_droit\nracine = ArbreBinaire('A')\nracine.insert_gauche('B')\nracine.insert_droit('F')\n\nb_node = racine.get_gauche()\nb_node.insert_gauche('C')\nb_node.insert_droit('D')\n\nf_node = racine.get_droit()\nf_node.insert_gauche('G')\nf_node.insert_droit('H')\n\nc_node = b_node.get_gauche()\nc_node.insert_droit('E')\n\ng_node = f_node.get_gauche()\ng_node.insert_gauche('I')\n\nh_node = f_node.get_droit()\nh_node.insert_droit('J')\nc = \"\"\nif parcours_suffixe(racine) == ['E', 'C', 'D', 'B', 'I', 'G', 'J', 'H', 'F', 'A']:\n    c += \"1\"\nelse  :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:56.601151+00:00",
+    "ordering": 15
+  },
+  {
+    "id": 104,
+    "titre": "est parfait",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `est_parfait` qui prend en paramètre un entier strictement positif `n` et renvoie `True` si cet entier est un nombre parfait (c'est-à-dire égal à la somme de ses diviseurs propres strictements inférieurs à `n`), et `False` sinon.  \nExemples :  \n```\n>>> est_parfait(6)\nTrue\n>>> est_parfait(28)\nTrue\n>>> est_parfait(10)\nFalse\n```",
+    "test": "c = \"\"\nif est_parfait(6) == True:\n    c += \"1\"\nelse:\n    c += \"0\"\nif est_parfait(28) == True:\n    c += \"1\"\nelse:\n    c += \"0\"\nif est_parfait(10) == False:\n    c += \"1\"\nelse:\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:59.786115+00:00",
+    "ordering": 16
+  },
+  {
+    "id": 32,
+    "titre": "(T) suite fibonacci récursive",
+    "niveau": 3,
+    "enonce": "On s’intéresse à la suite d’entiers définie par :  \n• la première valeur est égale à 0 ;  \n• la deuxième valeur est égale à 1 ;  \n• ensuite, chaque valeur est obtenue en faisant la somme des deux valeurs qui le précèdent.  \nLa troisième valeur est donc 0+1 = 1, la quatrième est 1+2 = 3, la cinquième est 2+3 = 5, la sixième est 3 + 5 = 8, et ainsi de suite.  \nCette suite d’entiers est connue sous le nom de suite de Fibonacci.  \nÉcrire en Python une fonction `fibonacci` qui prend en paramètre un entier `n` supposé strictement positif et qui renvoie le terme d’indice n de cette suite.  \nExemples :  \n```\n>>> fibonacci(0)\n0\n>>> fibonacci(1)\n1\n>>> fibonacci(2)\n1\n>>> fibonacci(10)\n55\n>>> fibonacci(13)\n233\n```",
+    "test": "c=\"\"\nif fibonacci(0) == 0:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif fibonacci(1) == 1:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif fibonacci(10) == 55:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif fibonacci(13) == 233:\n    c+=\"1\"\nelse  :\n    c+=\"0\"",
+    "created_at": "2026-03-15T20:36:55.232794+00:00",
+    "ordering": 17
+  },
+  {
+    "id": 30,
+    "titre": "moyenne",
+    "niveau": 1,
+    "enonce": "Écrire une fonction `moyenne` qui prend en paramètre 3 entiers `a`, `b` et `c`. Cette fonction renvoie la moyenne des entiers `a`, `b` et `c`.  \nExemple :  \n```\n>>> moyenne(5, 10, 15)\n10\n```",
+    "test": "c=\"\"\nif moyenne(5, 10, 15) == 10:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif moyenne(5, 5, 5) == 5:\n    c += '1'\nelse:\n    c += '0'",
+    "created_at": "2026-03-15T20:36:55.107915+00:00",
+    "ordering": 18
+  },
+  {
+    "id": 6,
+    "titre": "recherche",
+    "niveau": 2,
+    "enonce": "Programmer la fonction `recherche`, prenant en paramètres un tableau non vide tab (type list) d’entiers et un entier `n`, et qui renvoie l’indice de la première occurrence de l’élément cherché.  \nSi l’élément n’est pas présent, la fonction renvoie `None`.  \nExemples :  \n```\n>>> recherche([5, 3],1) # renvoie None\n>>> recherche([2,4],2)\n0\n>>> recherche([2,3,5,2,4],2)\n0\n```",
+    "test": "c = \"\"\nif recherche([5, 3],1) == None:\n    c += \"1\"\nelse :\n    c += \"0\"\nif recherche([2,4],2) == 0:\n    c += \"1\"\nelse :\n    c += \"0\"\nif recherche([2,3,5,2,4],2) == 0:\n    c += \"1\"\nelse :\n    c += \"0\"\nif recherche([10, 20, 30], 40) == None:\n    c += '1'\nelse:\n    c += '0'\nif recherche([1, 2, 3, 4, 5], 3) == 2:\n    c += \"1\"\nelse :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:53.565498+00:00",
+    "ordering": 19
+  },
+  {
+    "id": 48,
+    "titre": "correspond",
+    "niveau": 3,
+    "enonce": "On considère des chaînes de caractères contenant uniquement des majuscules et des caractères * appelées mots à trous.  \nPar exemple INFO*MA*IQUE, ***I***E** et *S* sont des mots à trous.  \nProgrammer une fonction `correspond` :  \n• qui prend en paramètres deux chaînes de caractères mot et mot_a_trous où mot_a_trous est un mot à trous comme indiqué ci-dessus ;  \n• et qui renvoie :  \n– `True` si on peut obtenir mot en remplaçant convenablement les caractères '*' de mot_a_trous ;  \n– `False` sinon.  \nExemple :  \n```\n>>> correspond('INFORMATIQUE', 'INFO*MA*IQUE')\nTrue\n>>> correspond('TOTO', 'TITI')\nFalse\n>>> correspond('STOP', 'S*')\nFalse\n>>> correspond('AUTO', '*UT*')\nTrue\n```",
+    "test": "c=\"\"\nif correspond('INFORMATIQUE', 'INFO*MA*IQUE') :\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif not correspond('TOTO', 'TITI') :\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif not correspond('STOP', 'S*') :\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif correspond('AUTO', '*UT*') :\n    c+=\"1\"\nelse  :\n    c+=\"0\"",
+    "created_at": "2026-03-15T20:36:56.244561+00:00",
+    "ordering": 20
+  },
+  {
+    "id": 70,
+    "titre": "info météo",
+    "niveau": 2,
+    "enonce": "On considère un relevé météo implémenté à l'aide de dictionnaires. On  trouve dans ce relevé les informations suivantes pour chaque ville :  \n- la température maxi  \n- la température mini  \n- la pluviométrie  \n\nExemple :\n```\ndonnees_meteo = {\n    \"Paris\": {\"max\": 25, \"min\": 15, \"precip\": 5},\n    \"Lyon\": {\"max\": 28, \"min\": 18, \"precip\": 2},\n    \"Marseille\": {\"max\": 30, \"min\": 20, \"precip\": 0},\n    \"Toulouse\": {\"max\": 27, \"min\": 17, \"precip\": 10}\n}\n```\nÉcrire une fonction `info_meteo` qui prend en paramètre un relevé météo et renvoie un tuple contenant :  \n- le nom de la ville où la plus petite température a été relevée  \n- le nom de la ville où la plus haute température a été relevée  \n-  la somme de  toutes la pluviométrie.  \n\nExemple :  \n```\n>>> donnees_meteo = {\n    \"Paris\": {\"max\": 25, \"min\": 15, \"precip\": 5},\n    \"Lyon\": {\"max\": 28, \"min\": 18, \"precip\": 2},\n    \"Marseille\": {\"max\": 30, \"min\": 20, \"precip\": 0},\n    \"Toulouse\": {\"max\": 27, \"min\": 17, \"precip\": 10}\n}\n>>> info_meteo(donnees_meteo)\n(\"Paris\", \"Marseille\", 17)\n```",
+    "test": "c = \"\"\ndonnees_meteo = {\n    \"Paris\": {\"max\": 25, \"min\": 15, \"precip\": 5},\n    \"Lyon\": {\"max\": 28, \"min\": 18, \"precip\": 2},\n    \"Marseille\": {\"max\": 30, \"min\": 20, \"precip\": 0},\n    \"Toulouse\": {\"max\": 27, \"min\": 17, \"precip\": 10}\n}\nif info_meteo(donnees_meteo) == (\"Paris\", \"Marseille\", 17):\n    c += \"1\"\nelse  :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:57.601225+00:00",
+    "ordering": 21
+  },
+  {
+    "id": 66,
+    "titre": "palindrome",
+    "niveau": 3,
+    "enonce": "Un mot palindrome peut se lire de la même façon de gauche à droite ou de droite à gauche : kayak, radar, et non sont des mots palindromes.  \nÉcrire une fonction `est_palindrome` qui prend en paramètre une chaine de caractère `mot`. Cette fonction renvoie `True` si mot est un palindrome et `False` dans le cas contraire.  \nExemples :  \n```\n>>> est_palindrome('kayak')\nTrue\n>>> est_palindrome('NSI')\nFalse\n```",
+    "test": "c=\"\"\nif est_palindrome('kayak'):\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif not est_palindrome('NSI'):\n    c+=\"1\"\nelse  :\n    c+=\"0\"",
+    "created_at": "2026-03-15T20:36:57.35787+00:00",
+    "ordering": 22
+  },
+  {
+    "id": 18,
+    "titre": "salutation",
+    "niveau": 1,
+    "enonce": "Écrire une fonction `salutation` qui prend en paramètres une chaîne de caractères `prenom` et un entier `heure` (compris entre 0 et 23). La fonction renvoie la chaîne \"Bonjour [prenom]\" si l'heure est strictement inférieure à 18, et \"Bonsoir [prenom]\" sinon. (Note : remplacez [prenom] par la valeur réelle).  \nExemples :  \n```\n>>> salutation(\"Alice\", 14)\n'Bonjour Alice'\n>>> salutation(\"Bob\", 20)\n'Bonsoir Bob'\n```",
+    "test": "c = \"\"\nif salutation(\"Alice\", 14) == 'Bonjour Alice':\n    c += \"1\"\nelse:\n    c += \"0\"\nif salutation(\"Bob\", 20) == 'Bonsoir Bob':\n    c += \"1\"\nelse:\n    c += \"0\"\nif salutation('Antigravity', 9) == 'Bonjour Antigravity':\n    c += '1'\nelse:\n    c += '0'\nif salutation('Bob', 19) == 'Bonsoir Bob':\n    c += \"1\"\nelse :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:54.359003+00:00",
+    "ordering": 23
+  },
+  {
+    "id": 94,
+    "titre": "trouve le nombre de voyelles dans une chaine de caractères",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `nombre_voyelles` qui prend en paramètre une chaîne de caractères `chaine` et qui renvoie le nombre de voyelles (a, e, i, o, u, y) présentes dans la chaîne. La casse (majuscules/minuscules) ne doit pas être prise en compte.  \nExemples :  \n```\n>>> nombre_voyelles(\"Bonjour\")\n3\n>>> nombre_voyelles(\"Python\")\n2\n>>> nombre_voyelles(\"AEIOUY\")\n6\n>>> nombre_voyelles(\"\")\n0\n```",
+    "test": "c = \"\"\nif nombre_voyelles(\"Bonjour\") == 3:\n    c += \"1\"\nelse:\n    c += \"0\"\nif nombre_voyelles(\"Python\") == 2:\n    c += \"1\"\nelse:\n    c += \"0\"\nif nombre_voyelles(\"AEIOUY\") == 6:\n    c += \"1\"\nelse:\n    c += \"0\"\nif nombre_voyelles(\"\") == 0:\n    c += \"1\"\nelse:\n    c += \"0\"\nif nombre_voyelles('z') == 0:\n    c += '1'\nelse:\n    c += '0'",
+    "created_at": "2026-03-15T20:36:59.153271+00:00",
+    "ordering": 24
+  },
+  {
+    "id": 63,
+    "titre": "recherche dichotomique",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `dichotomie` qui prend en paramètre un tableau `tab` d'entiers triés et un entier `n`. Cette fonction renvoie `True` si `n` est présent dans le tableau et `False` dans le cas contraire.  \nAttention : vous devez utiliser l'algorithme de la recherche dichotomique  \nExemples :  \n```\n>>> dichotomie([15, 16, 18, 19, 23, 24, 28, 29, 31, 33],28)\nTrue\n>>> dichotomie([15, 16, 18, 19, 23, 24, 28, 29, 31, 33],27)\nFalse\n```",
+    "test": "c=\"\"\nif dichotomie([15, 16, 18, 19, 23, 24, 28, 29, 31, 33],28):\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif not dichotomie([15, 16, 18, 19, 23, 24, 28, 29, 31, 33],27):\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif dichotomie([1, 2, 3], 2):\n    c += '1'\nelse:\n    c += '0'\nif not dichotomie([10, 20, 30], 40):\n    c += \"1\"\nelse :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:57.152379+00:00",
+    "ordering": 25
+  },
+  {
+    "id": 12,
+    "titre": "verifie",
+    "niveau": 3,
+    "enonce": "Écrire une fonction `verifie` qui prend en paramètre un tableau de valeurs numériques et qui renvoie `True` si ce tableau est trié dans l’ordre croissant, `False` sinon.  \nUn tableau vide est considéré comme trié.  \nExemples :  \n```\n>>> verifie([0, 5, 8, 8, 9])\nTrue\n>>> verifie([8, 12, 4])\nFalse\n>>> verifie([-1, 4])\nTrue\n>>> verifie([])\nTrue\n>>> verifie([5])\nTrue\n```",
+    "test": "c = \"\"\nif verifie([0, 5, 8, 8, 9]):\n    c += \"1\"\nelse  :\n    c += \"0\"\nif not verifie([8, 12, 4]):\n    c += \"1\"\nelse  :\n    c += \"0\"\nif verifie([-1, 4]):\n    c += \"1\"\nelse  :\n    c += \"0\"\nif verifie([]):\n    c += \"1\"\nelse  :\n    c += \"0\"\nif verifie([5]):\n    c += \"1\"\nelse  :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:53.961507+00:00",
+    "ordering": 26
+  },
+  {
+    "id": 99,
+    "titre": "produit tableau",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `produit_tableau` qui prend en paramètre un tableau non vide de nombres entiers `tab` et renvoie le produit de tous ses éléments.  \nExemples :  \n```\n>>> produit_tableau([2, 3, 4])\n24\n>>> produit_tableau([-1, 50])\n-50\n>>> produit_tableau([100, 0, 5])\n0\n```",
+    "test": "c = \"\"\nif produit_tableau([2, 3, 4]) == 24:\n    c += \"1\"\nelse:\n    c += \"0\"\nif produit_tableau([-1, 50]) == -50:\n    c += \"1\"\nelse:\n    c += \"0\"\nif produit_tableau([100, 0, 5]) == 0:\n    c += \"1\"\nelse:\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:59.461801+00:00",
+    "ordering": 27
+  },
+  {
+    "id": 44,
+    "titre": "doublon",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `a_doublon` qui prend en paramètre un tableau trié de nombres dans l’ordre croissant et renvoie `True` si ce tableau contient au moins deux nombres identiques, `False` sinon.  \nExemple :  \n```\n>>> a_doublon([])\nFalse\n>>> a_doublon([1])\nFalse\n>>> a_doublon([1, 2, 4, 6, 6])\nTrue\n>>> a_doublon([2, 5, 7, 7, 7, 9])\nTrue\n>>> a_doublon([0, 2, 3])\nFalse\n```",
+    "test": "c=\"\"\nif not a_doublon([]):\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif not a_doublon([1]):\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif a_doublon([1, 2, 4, 6, 6]):\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif a_doublon([2, 5, 7, 7, 7, 9]):\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif not a_doublon([0, 2, 3]):\n    c+=\"1\"\nelse  :\n    c+=\"0\"",
+    "created_at": "2026-03-15T20:36:56.005386+00:00",
+    "ordering": 28
+  },
+  {
+    "id": 16,
+    "titre": "moyenne pondérée",
+    "niveau": 3,
+    "enonce": "Dans cet exercice, on cherche à calculer la moyenne pondérée d’un élève dans une matière donnée. Chaque note est associée à un coefficient qui la pondère. Par exemple, si ses notes sont : 14 avec coefficient 3, 12 avec coefficient 1 et 16 avec coefficient 2, sa moyenne pondérée sera donnée par :  \n(14 × 3 + 12 × 1 + 16 × 2) / (3 + 1 + 2) = 14, 333...  \nÉcrire une fonction `moyenne` qui prend en paramètre une liste notes non vide de tuples à deux éléments entiers de la forme (note, coefficient) (`int` ou `float`) positifs ou nuls et qui renvoie la moyenne pondérée des notes de la liste sous forme de flottant si la somme des coefficients est non nulle, `None` sinon.  \nExemple :  \n```\n>>> moyenne([(12, 2), (8, 1), (10, 1)])\n10.5\n>>> moyenne([(3, 0), (5, 0)])\nNone\n```",
+    "test": "c = \"\"\nif moyenne([(12, 2), (8, 1), (10, 1)]) == 10.5:\n    c += \"1\"\nelse  :\n    c += \"0\"\nif moyenne([(3, 0), (5, 0)]) == None:\n    c += \"1\"\nelse  :\n    c += \"0\"\nif moyenne([(5,1), (15,1)]) == 10.0:\n    c += '1'\nelse:\n    c += '0'",
+    "created_at": "2026-03-15T20:36:54.224111+00:00",
+    "ordering": 29
+  },
+  {
+    "id": 53,
+    "titre": "moyenne dico",
+    "niveau": 3,
+    "enonce": "Une professeure de NSI décide de gérer les résultats de sa classe sous la forme d’un dictionnaire :  \n• les clefs sont les noms des élèves ;  \n• les valeurs sont des dictionnaires dont les clés sont les types d’épreuves sous forme de chaîne de caractères et les valeurs sont les notes obtenues associées à leurs coefficients dans une liste.  \nAvec :  \n```\nresultats = {\n    Dupont': {\n        'DS1': [15.5, 4],\n        'DM1': [14.5, 1],\n        'DS2': [13, 4],\n        'PROJET1': [16, 3],\n        'DS3': [14, 4]\n    },\n    'Durand': {\n        'DS1': [6 , 4],\n        'DS2': [8, 4],\n        'PROJET1': [9, 3],\n        'IE1': [7, 2],\n        'DS3': [12, 4]\n    }\n}\n```\nL’élève dont le nom est Durand a ainsi obtenu au DS2 la note de 8 avec un coefficient 4. La professeure crée une fonction moyenne qui prend en paramètre le nom d’un de ses élèves et renvoie sa moyenne arrondie au dixième. Si l’élève n’a pas de notes, on considère que sa moyenne est nulle. Si le nom donné n’est pas dans les résultats, la fonction renvoie None.  \nÉcrire le code de la fonction `moyenne`.  \nExemples :  \n```\n>>> moyenne(\"Dupont\", resultats)\n14.5\n>>> moyenne(\"Durand\", resultats)\n8.5\n```",
+    "test": "c=\"\"\nresultats = {'Dupont': {'DS1': [15.5, 4],'DM1': [14.5, 1],'DS2': [13, 4],'PROJET1': [16, 3],'DS3': [14, 4]},'Durand': {'DS1': [6 , 4],'DS2': [8, 4],'PROJET1': [9, 3],'IE1': [7, 2],'DS3': [12, 4]}}\nif  round(moyenne(\"Dupont\", resultats)) == 15:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif  round(moyenne(\"Durand\", resultats)) ==  9:\n    c+=\"1\"\nelse  :\n    c+=\"0\"",
+    "created_at": "2026-03-15T20:36:56.538467+00:00",
+    "ordering": 30
+  },
+  {
+    "id": 38,
+    "titre": "occurrences",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `occurrences(caractere, chaine)` qui prend en paramètres `caractere`, une chaîne de caractère de longueur 1, et `chaine`, une chaîne de caractères.  \nCette fonction renvoie le nombre d’occurrences de `caractere` dans `chaine`, c’est-à-dire le nombre de fois où `caractere` apparaît dans `chaine`.  \nExemples :  \n```\n>>> occurrences('e', \"sciences\")\n2\n>>> occurrences('i',\"mississippi\")\n4\n>>> occurrences('a',\"mississippi\")\n0\n```",
+    "test": "c=\"\"\nif occurrences('e', \"sciences\") == 2:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif occurrences('i',\"mississippi\") == 4:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif occurrences('a',\"mississippi\") == 0:\n    c+=\"1\"\nelse  :\n    c+=\"0\"",
+    "created_at": "2026-03-15T20:36:55.627151+00:00",
+    "ordering": 31
+  },
+  {
+    "id": 88,
+    "titre": "conversion chaine en entier",
+    "niveau": 3,
+    "enonce": "Écrire une fonction `convertit_en_entier` qui prend en paramètre une chaîne de caractères chaine représentant un nombre entier positif. La fonction doit renvoyer la valeur entière correspondante.  \nIl est interdit d'utiliser la fonction native `int`.  \nExemples :\n```\n>>> convertit_en_entier(\"123\")\n123\n>>> convertit_en_entier(\"4567\")\n4567\n>>> convertit_en_entier(\"0\")\n0\n```",
+    "test": "c = \"\"\nif convertit_en_entier(\"123\") == 123:\n c += \"1\"\nelse:\n c += \"0\"\nif convertit_en_entier(\"4567\") == 4567:\n c += \"1\"\nelse:\n c += \"0\"\nif convertit_en_entier(\"0\") == 0:\n c += \"1\"\nelse:\n c += \"0\"",
+    "created_at": "2026-03-15T20:36:58.754761+00:00",
+    "ordering": 32
+  },
+  {
+    "id": 50,
+    "titre": "insére",
+    "niveau": 3,
+    "enonce": "On considère la fonction `insere` ci-dessous qui prend en arguments un tableau `tab` d’entiers triés par ordre croissant et un entier `a`.  \nCette fonction crée et renvoie un nouveau tableau à partir de celui fourni en paramètre en y insérant la valeur `a` de sorte que le tableau renvoyé soit encore trié par ordre croissant. Les tableaux seront représentés sous la forme de listes Python.  \nÉcrire cette fonction insere  \nExemples :  \n```\n>>> insere([1, 2, 4, 5], 3)\n[1, 2, 3, 4, 5]\n>>> insere([1, 2, 7, 12, 14, 25], 30)\n[1, 2, 7, 12, 14, 25, 30]\n>>> insere([2, 3, 4], 1)\n[1, 2, 3, 4]\n>>> insere([], 1)\n[1]\n```",
+    "test": "c=\"\"\nif insere([1, 2, 4, 5], 3) ==  [1, 2, 3, 4, 5]:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif insere([1, 2, 7, 12, 14, 25], 30) ==  [1, 2, 7, 12, 14, 25, 30]:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif insere([2, 3, 4], 1) ==  [1, 2, 3, 4]:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif insere([], 1) == [1] :\n    c+=\"1\"\nelse  :\n    c+=\"0\"",
+    "created_at": "2026-03-15T20:36:56.360939+00:00",
+    "ordering": 33
+  },
+  {
+    "id": 19,
+    "titre": "min et max",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `min_et_max` qui prend en paramètre un tableau de nombres `tab` non vide, et qui renvoie la plus petite et la plus grande valeur du tableau sous la forme d’un dictionnaire à deux clés `min` et `max`.  \nL’utilisation des fonctions natives `min`, `max` et `sorted`, ainsi que la méthode `sort` n’est pas autorisée.  \nExemples :  \n```\n>>> min_et_max([0, 1, 4, 2, -2, 9, 3, 1, 7, 1])\n{'min': -2, 'max': 9}\n>>> min_et_max([0, 1, 2, 3])\n{'min': 0, 'max': 3}\n>>> min_et_max([3])\n{'min': 3, 'max': 3}\n>>> min_et_max([1, 3, 2, 1, 3])\n{'min': 1, 'max': 3}\n>>> min_et_max([-1, -1, -1, -1, -1])\n{'min': -1, 'max': -1}\n```",
+    "test": "c = \"\"\nif min_et_max([0, 1, 4, 2, -2, 9, 3, 1, 7, 1]) == {'min': -2, 'max': 9}:\n    c += \"1\"\nelse  :\n    c += \"0\"\nif min_et_max([0, 1, 2, 3]) == {'min': 0, 'max': 3}:\n    c += \"1\"\nelse  :\n    c += \"0\"\nif min_et_max([3]) == {'min': 3, 'max': 3}:\n    c += \"1\"\nelse  :\n    c += \"0\"\nif min_et_max([1, 3, 2, 1, 3]) == {'min': 1, 'max': 3}:\n    c += \"1\"\nelse  :\n    c += \"0\"\nif min_et_max([-1, -1, -1, -1, -1]) == {'min': -1, 'max': -1}:\n    c += \"1\"\nelse  :\n    c += \"0\"\nif min_et_max([5, 10, 1]) == {'min': 1, 'max': 10}:\n    c += '1'\nelse:\n    c += '0'\nif min_et_max([10, 0, -10]) == {'min': -10, 'max': 10}:\n    c += \"1\"\nelse :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:54.418366+00:00",
+    "ordering": 34
+  },
+  {
+    "id": 8,
+    "titre": "dernier chiffre",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `dernier_chiffre` qui prend en paramètre un entier positif `n` et qui renvoie son dernier chiffre des unités.  \nExemples :  \n```\n>>> dernier_chiffre(145)\n5\n>>> dernier_chiffre(42)\n2\n>>> dernier_chiffre(1980)\n0\n```",
+    "test": "c = \"\"\nif dernier_chiffre(145) == 5:\n    c += \"1\"\nelse:\n    c += \"0\"\nif dernier_chiffre(42) == 2:\n    c += \"1\"\nelse:\n    c += \"0\"\nif dernier_chiffre(1980) == 0:\n    c += \"1\"\nelse:\n    c += \"0\"\nif dernier_chiffre(2023) == 3:\n    c += '1'\nelse:\n    c += '0'\nif dernier_chiffre(99) == 9:\n    c += \"1\"\nelse :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:53.701337+00:00",
+    "ordering": 35
+  },
+  {
+    "id": 9,
+    "titre": "max et indice",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `max_et_indice` qui prend en paramètre un tableau non vide `tab` (type Python list) de nombres entiers et qui renvoie la valeur du plus grand élément de ce tableau ainsi que l’indice de sa première apparition dans ce tableau.  \nL’utilisation de la fonction native `max` n’est pas autorisée.  \nExemples :  \n```\n>>> max_et_indice([1, 5, 6, 9, 1, 2, 3, 7, 9, 8])\n(9, 3)\n>>> max_et_indice([-2])\n(-2, 0)\n>>> max_et_indice([-1, -1, 3, 3, 3])\n(3, 2)\n>>> max_et_indice([1, 1, 1, 1])\n(1, 0)\n```",
+    "test": "c = \"\"\nif max_et_indice([1, 5, 6, 9, 1, 2, 3, 7, 9, 8]) == (9,3):\n    c += \"1\"\nelse  :\n    c += \"0\"\nif max_et_indice([-2]) == (-2, 0):\n    c += \"1\"\nelse  :\n    c += \"0\"\nif max_et_indice([-1, -1, 3, 3, 3]) == (3, 2):\n    c += \"1\"\nelse  :\n    c += \"0\"\nif max_et_indice([1, 1, 1, 1]) == (1, 0):\n    c += \"1\"\nelse  :\n    c += \"0\"\nif max_et_indice([1, 9, 2, 9]) == (9, 1):\n    c += '1'\nelse:\n    c += '0'\nif max_et_indice([5, 8, 2, 8]) == (8, 1):\n    c += \"1\"\nelse :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:53.760355+00:00",
+    "ordering": 36
+  },
+  {
+    "id": 110,
+    "titre": "prefixes",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `prefixes` qui prend en paramètre une chaîne de caractères `mot` et renvoie un tableau contenant tous les préfixes non vides de ce mot, du plus court au plus long.  \nExemples :  \n```\n>>> prefixes(\"chat\")\n['c', 'ch', 'cha', 'chat']\n>>> prefixes(\"a\")\n['a']\n>>> prefixes(\"\")\n[]\n```",
+    "test": "c = \"\"\nif prefixes(\"chat\") == ['c', 'ch', 'cha', 'chat']:\n    c += \"1\"\nelse:\n    c += \"0\"\nif prefixes(\"a\") == ['a']:\n    c += \"1\"\nelse:\n    c += \"0\"\nif prefixes(\"\") == []:\n    c += \"1\"\nelse:\n    c += \"0\"",
+    "created_at": "2026-03-15T20:37:00.1657+00:00",
+    "ordering": 37
+  },
+  {
+    "id": 51,
+    "titre": "décimal vers binaire",
+    "niveau": 3,
+    "enonce": "On considère la fonction `binaire`. Cette fonction prend en paramètre un entier positif `a` en écriture décimale et renvoie son écriture binaire sous la forme d’une chaine de caractères.  \nÉcrire cette fonction `binaire`  \nExemples :  \n```\n>>> binaire(83)\n'1010011'\n>>> binaire(6)\n'110'\n>>> binaire(127)\n'1111111'\n>>> binaire(0)\n'0'\n```",
+    "test": "c=\"\"\nif binaire(83) ==  '1010011':\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif binaire(6) ==  '110':\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif binaire(127) ==  '1111111':\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif binaire(0) == '0' :\n    c+=\"1\"\nelse  :\n    c+=\"0\"",
+    "created_at": "2026-03-15T20:36:56.41912+00:00",
+    "ordering": 38
+  },
+  {
+    "id": 98,
+    "titre": "recherche arriere",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `recherche_arriere` qui prend en paramètres un tableau d'entiers `tab` et un entier `n`. La fonction renvoie l'indice de la dernière occurrence de `n` dans `tab`. Si `n` n'est pas présent, la fonction renvoie `None`.  \nExemples :  \n```\n>>> recherche_arriere([1, 2, 3, 2, 4], 2)\n3\n>>> recherche_arriere([5, 5, 5], 5)\n2\n>>> recherche_arriere([1, 2], 3)\nNone\n```",
+    "test": "c = \"\"\nif recherche_arriere([1, 2, 3, 2, 4], 2) == 3:\n    c += \"1\"\nelse:\n    c += \"0\"\nif recherche_arriere([5, 5, 5], 5) == 2:\n    c += \"1\"\nelse:\n    c += \"0\"\nif recherche_arriere([1, 2], 3) == None:\n    c += \"1\"\nelse:\n    c += \"0\"\nif recherche_arriere([1, 2, 3], 2) == 1:\n    c += '1'\nelse:\n    c += '0'\nif recherche_arriere([10, 20, 30], 20) == 1:\n    c += \"1\"\nelse :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:59.39994+00:00",
+    "ordering": 39
+  },
+  {
+    "id": 24,
+    "titre": "signe",
+    "niveau": 1,
+    "enonce": "Écrire une fonction `signe` qui prend en paramètre un entier `n` et renvoie une chaîne de caractères :  \n- \"strictement positif\" si le nombre est supérieur à zéro.  \n- \"strictement négatif\" si le nombre est inférieur à zéro.  \n- \"nul\" si le nombre est égal à zéro.  \nExemples :  \n```\n>>> signe(42)\n'strictement positif'\n>>> signe(-5)\n'strictement négatif'\n>>> signe(0)\n'nul'\n```",
+    "test": "c = \"\"\nif signe(42) == 'strictement positif':\n    c += \"1\"\nelse:\n    c += \"0\"\nif signe(-5) == 'strictement négatif':\n    c += \"1\"\nelse:\n    c += \"0\"\nif signe(0) == 'nul':\n    c += \"1\"\nelse:\n    c += \"0\"\nif signe(-10) == 'strictement négatif':\n    c += '1'\nelse:\n    c += '0'",
+    "created_at": "2026-03-15T20:36:54.721147+00:00",
+    "ordering": 40
+  },
+  {
+    "id": 35,
+    "titre": "renverse chaine",
+    "niveau": 3,
+    "enonce": "Programmer une fonction `renverse` qui prend en paramètre une chaîne de caractères `mot` et qui renvoie cette chaîne de caractères en ordre inverse.  \nExemple :  \n```\n>>> renverse(\"\")\n\"\"\n>>> renverse(\"abc\")\n\"cba\"\n>>> renverse(\"informatique\")\n\"euqitamrofni\"\n```",
+    "test": "c=\"\"\nif renverse(\"\") == \"\":\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif renverse(\"abc\") == \"cba\":\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif renverse(\"informatique\") == \"euqitamrofni\":\n    c+=\"1\"\nelse  :\n    c+=\"0\"",
+    "created_at": "2026-03-15T20:36:55.424147+00:00",
+    "ordering": 41
+  },
+  {
+    "id": 78,
+    "titre": "compte mots",
+    "niveau": 3,
+    "enonce": "Écrire une fonction `compte_mots` qui prend en paramètre une chaîne de caractères texte et renvoie un dictionnaire dont les clés sont les mots présents dans le texte et les valeurs associées sont le nombre d'occurrences de chaque mot. On considérera que les mots sont séparés par des espaces et que la ponctuation est ignorée. La casse ne doit pas être prise en compte (les majuscules et minuscules sont considérées comme identiques).  \nExemples :  \n```\n>>> compte_mots(\"Le chat est sur le tapis\")\n{'le': 2, 'chat': 1, 'est': 1, 'sur': 1, 'tapis': 1}\n>>> compte_mots(\"Un deux trois, un deux\")\n{'un': 2, 'deux': 2, 'trois': 1}\n>>> compte_mots(\"\")\n{}\n```",
+    "test": "c = \"\"\nif compte_mots(\"Le chat est sur le tapis\") == {'le': 2, 'chat': 1, 'est': 1, 'sur': 1, 'tapis': 1}:\n  c += \"1\"\nelse:\n  c += \"0\"\nif compte_mots(\"Un deux trois un deux\") == {'un': 2, 'deux': 2, 'trois': 1}:\n  c += \"1\"\nelse:\n  c += \"0\"\nif compte_mots(\"\") == {}:\n  c += \"1\"\nelse:\n  c += \"0\"",
+    "created_at": "2026-03-15T20:36:58.091905+00:00",
+    "ordering": 42
+  },
+  {
+    "id": 40,
+    "titre": "indices maxi",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `indices_maxi` qui prend en paramètre un tableau non vide de nombres entiers `tab`, représenté par une liste Python et qui renvoie un tuple `(maxi, indices)` où :  \n• `maxi` est le plus grand élément du tableau `tab` ;  \n• `indices` est une liste Python contenant les indices du tableau `tab` où apparaît ce plus grand élément.  \nExemple :  \n```\n>>> indices_maxi([1, 5, 6, 9, 1, 2, 3, 7, 9, 8])\n(9, [3, 8])\n>>> indices_maxi([7])\n(7, [0])\n```",
+    "test": "c=\"\"\nif indices_maxi([1, 5, 6, 9, 1, 2, 3, 7, 9, 8]) == (9, [3, 8]):\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif indices_maxi([7]) == (7, [0]):\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif indices_maxi([1, 2,10,10,3]) == (10,[2,3]):\n    c += '1'\nelse:\n    c += '0'\nif indices_maxi([42, 17, 99]) == (99,[2]):\n    c += \"1\"\nelse :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:55.749872+00:00",
+    "ordering": 43
+  },
+  {
+    "id": 10,
+    "titre": "tarification",
+    "niveau": 1,
+    "enonce": "Écrire une fonction `tarification` qui prend en paramètre un entier positif `age` et qui renvoie une chaîne de caractères correspondant au tarif du billet :  \n- \"Gratuit\" si l'âge est strictement inférieur à 4 ans.  \n- \"Demi-tarif\" si l'âge est compris entre 4 ans (inclus) et strictement inférieur à 12 ans.  \n- \"Plein tarif\" dans tous les autres cas.  \nExemples :  \n```\n>>> tarification(3)\n'Gratuit'\n>>> tarification(8)\n'Demi-tarif'\n>>> tarification(25)\n'Plein tarif'\n```",
+    "test": "c = \"\"\nif tarification(3) == 'Gratuit':\n    c += \"1\"\nelse:\n    c += \"0\"\nif tarification(8) == 'Demi-tarif':\n    c += \"1\"\nelse:\n    c += \"0\"\nif tarification(25) == 'Plein tarif':\n    c += \"1\"\nelse:\n    c += \"0\"\nif tarification(11) == 'Demi-tarif':\n    c += '1'\nelse:\n    c += '0'\nif tarification(5) == 'Demi-tarif':\n    c += \"1\"\nelse :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:53.820246+00:00",
+    "ordering": 44
+  },
+  {
+    "id": 58,
+    "titre": "(T) taille d'un arbre binaire",
+    "niveau": 3,
+    "enonce": "Écrire une fonction `taille` qui prend en paramètre une instance de la classe `arbre T` et renvoie la taille de l'arbre binaire `T`.  \nLa classe `Arbre` possède 3 méthodes :  \n- g`et_gauche()` renvoie l'arbre gauche  \n- `get_droit()` renvoie l'arbre droit  \n- `get_valeur()` renvoie la valeur du noeud",
+    "test": "class ArbreBinaire:\n    def __init__(self, valeur):\n        self.valeur = valeur\n        self.enfant_gauche = None\n        self.enfant_droit = None   \n    def insert_gauche(self, valeur):\n        if self.enfant_gauche == None:\n            self.enfant_gauche = ArbreBinaire(valeur)\n        else:\n            new_node = ArbreBinaire(valeur)\n            new_node.enfant_gauche = self.enfant_gauche\n            self.enfant_gauche = new_node\n    def insert_droit(self, valeur):\n        if self.enfant_droit == None:\n            self.enfant_droit = ArbreBinaire(valeur)\n        else:\n            new_node = ArbreBinaire(valeur)\n            new_node.enfant_droit = self.enfant_droit\n            self.enfant_droit = new_node\n    def get_valeur(self):\n        return self.valeur    \n    def get_gauche(self):\n        return self.enfant_gauche\n    def get_droit(self):\n        return self.enfant_droit\nracine = ArbreBinaire('A')\nracine.insert_gauche('B')\nracine.insert_droit('F')\n\nb_node = racine.get_gauche()\nb_node.insert_gauche('C')\nb_node.insert_droit('D')\n\nf_node = racine.get_droit()\nf_node.insert_gauche('G')\nf_node.insert_droit('H')\n\nc_node = b_node.get_gauche()\nc_node.insert_droit('E')\n\ng_node = f_node.get_gauche()\ng_node.insert_gauche('I')\n\nh_node = f_node.get_droit()\nh_node.insert_droit('J')\nc = \"\"\nif taille(racine) == 10:\n    c += \"1\"\nelse  :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:56.838938+00:00",
+    "ordering": 45
+  },
+  {
+    "id": 76,
+    "titre": "est un anagramme",
+    "niveau": 3,
+    "enonce": "Écrire une fonction `est_anagramme` qui prend deux chaînes de caractères en paramètre, `mot1` et `mot2`, et qui renvoie `True` si `mot1` est un anagramme de `mot2`, et `False` sinon.  \nDeux mots sont des anagrammes si on peut obtenir l'un à partir de l'autre en permutant les lettres.   \nPar exemple, \"chien\" est un anagramme de \"niche\", et \" marie \" est un anagramme de \"aimer\".  \nExemples :  \n```\n>>> est_anagramme(\"chien\", \"niche\")\nTrue\n>>> est_anagramme(\"marie\", \"aimer\")\nTrue\n>>> est_anagramme(\"bonjour\", \"bonsoir\")\nFalse\n```",
+    "test": "c = \"\"\nif est_anagramme(\"chien\", \"niche\"):\n c += \"1\"\nelse:\n c += \"0\"\nif est_anagramme(\"marie\", \"aimer\"):\n c += \"1\"\nelse:\n c += \"0\"\nif not est_anagramme(\"bonjour\", \"bonsoir\"):\n c += \"1\"\nelse:\n c += \"0\"",
+    "created_at": "2026-03-15T20:36:57.959358+00:00",
+    "ordering": 46
+  },
+  {
+    "id": 49,
+    "titre": "tri insertion",
+    "niveau": 3,
+    "enonce": "Écrire une fonction `tri_insertion` qui prend en paramètre un tableau `tab` de nombres entiers (type list) et qui renvoie un tableau trié par ordre croissant. Cette fonction doit utiliser l'algorithme du tri par insertion.  \nExemple :  \n```\n>>> tri_insertion([1, 52, 6, -9, 12])\n[-9, 1, 6, 12, 52]\n>>> tri_insertion([6])\n[6]\n```",
+    "test": "c=\"\"\nif tri_insertion([1, 52, 6, -9, 12]) == [-9, 1, 6, 12, 52]:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif tri_insertion([6]) == [6]:\n    c+=\"1\"\nelse  :\n    c+=\"0\"",
+    "created_at": "2026-03-15T20:36:56.303062+00:00",
+    "ordering": 47
+  },
+  {
+    "id": 107,
+    "titre": "est trie decroissant",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `est_trie_decroissant` qui prend en paramètre un tableau de nombres `tab` et renvoie `True` si le tableau est trié dans l'ordre décroissant, et `False` sinon. Un tableau vide ou ne contenant qu'un élément est considéré comme trié.  \nExemples :  \n```\n>>> est_trie_decroissant([9, 5, 2, 1])\nTrue\n>>> est_trie_decroissant([5, 5, 3])\nTrue\n>>> est_trie_decroissant([10, 8, 12])\nFalse\n```",
+    "test": "c = \"\"\nif est_trie_decroissant([9, 5, 2, 1]) == True:\n    c += \"1\"\nelse:\n    c += \"0\"\nif est_trie_decroissant([5, 5, 3]) == True:\n    c += \"1\"\nelse:\n    c += \"0\"\nif est_trie_decroissant([10, 8, 12]) == False:\n    c += \"1\"\nelse:\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:59.971327+00:00",
+    "ordering": 48
+  },
+  {
+    "id": 57,
+    "titre": "(T) plus grande somme",
+    "niveau": 4,
+    "enonce": "On considère un tableau non vide de nombres entiers, positifs ou négatifs, et on souhaite déterminer la plus grande somme possible de ses éléments consécutifs.  \nPar exemple, dans le tableau `[1, -2, 3, 10, -4, 7, 2, -5]`, la plus grande somme est 18 obtenue en additionnant les éléments 3, 10, -4, 7, 2.  \nPour cela, on va résoudre le problème par programmation dynamique. Si on note tab le tableau considéré et i un indice dans ce tableau, on se ramène à un problème plus simple : déterminer la plus grande somme possible de ses éléments consécutifs se terminant à l’indice i.  \nSi on connait la plus grande somme possible de ses éléments consécutifs se terminant à l’indice i-1, on peut déterminer la plus grande somme possible de ses éléments consécutifs se terminant à l’indice i :  \n• soit on obtient une plus grande somme en ajoutant tab[i] à cette somme précédente ;  \n• soit on commence une nouvelle somme à partir de tab[i].  \nRemarque : les sommes considérées contiennent toujours au moins un terme.  \nÉcrire la fonction `somme_max` qui prend en paramètre un tableau (de type list) et qui renvoie la plus grande somme possible des éléments consécutifs.  \nExemples :  \n```\n>>> somme_max([1, 2, 3, 4, 5])\n15\n>>> somme_max([1, 2, -3, 4, 5])\n9\n>>> somme_max([1, 2, -2, 4, 5])\n10\n>>> somme_max([1, -2, 3, 10, -4, 7, 2, -5])\n18\n>>> somme_max([-3,-2,-1,-4])\n-1\n```",
+    "test": "c=\"\"\nif somme_max([1, 2, 3, 4, 5]) ==  15:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif somme_max([1, 2, -3, 4, 5]) ==  9:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif somme_max([1, 2, -2, 4, 5]) ==  10:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif somme_max([1, -2, 3, 10, -4, 7, 2, -5]) == 18 :\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif somme_max([-3,-2,-1,-4]) == -1 :\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif somme_max([1, 2, 10, 3]) == 16:\n    c+='1'\nelse:\n    c+='0'\nif somme_max([1, 2, 3, 4]) == 10:\n    c+=\"1\"\nelse :\n    c+=\"0\"",
+    "created_at": "2026-03-15T20:36:56.780499+00:00",
+    "ordering": 49
+  },
+  {
+    "id": 77,
+    "titre": "Distance entre deux points",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `distance` qui prend en paramètre les coordonnées de deux points A et B. La fonction doit renvoyer la distance euclidienne entre ces deux points.  \nExemples :  \n```\n>>> distance((1, 2), (4, 6))\n5.0\n>>> distance((0, 0), (1, 1))\n1.414\n```",
+    "test": "import math\nc = \"\"\nif round(distance((1, 2), (4, 6)), 3) == 5.0:\n  c += \"1\"\nelse:\n  c += \"0\"\nif round(distance((0, 0), (1, 1)), 3) == 1.414:\n  c += \"1\"\nelse:\n  c += \"0\"",
+    "created_at": "2026-03-15T20:36:58.019344+00:00",
+    "ordering": 50
+  },
+  {
+    "id": 55,
+    "titre": "nombre de boites",
+    "niveau": 4,
+    "enonce": "On dispose d’un ensemble d’objets dont on connaît, pour chacun, la masse. On souhaite ranger l’ensemble de ces objets dans des boites identiques de telle manière que la somme des masses des objets contenus dans une boîte ne dépasse pas la capacité c de la boîte. On souhaite utiliser le moins de boîtes possibles pour ranger cet ensemble d’objets.  \nPour résoudre ce problème, on utilisera un algorithme glouton consistant à placer chacun des objets dans la première boîte où cela est possible.  \nPar exemple, pour ranger dans des boîtes de capacité c = 5 un ensemble de trois objets dont les masses sont représentées en Python par la liste [1, 5, 2], on procède de la façon suivante :  \n• Le premier objet, de masse 1, va dans une première boite.  \n• Le deuxième objet, de masse 5, ne peut pas aller dans la même boite que le premier objet car cela dépasserait la capacité de la boite. On place donc cet objet dans une deuxième boîte.  \n• Le troisième objet, de masse 2, va dans la première boîte.  \nOn a donc utilisé deux boîtes de capacité c = 5 pour ranger les 3 objets.  \nÉcrire la fonction Python `empaqueter` qui prend en paramètre la liste des masses `liste_masses` et la capacité de la boite `c`. La fonction empaqueter doit renvoyer le nombre de boîtes de capacité `c` nécessaires pour empaqueter un ensemble d’objets dont les masses sont contenues dans la liste `liste_masses`. On supposera que toutes les masses sont inférieures ou égales à `c`.  \nExemples :  \n```\n>>> empaqueter([1, 2, 3, 4, 5], 10)\n2\n>>> empaqueter([1, 2, 3, 4, 5], 5)\n4\n>>> empaqueter([7, 6, 3, 4, 8, 5, 9, 2], 11)\n5\n```",
+    "test": "c=\"\"\nif empaqueter([1, 2, 3, 4, 5], 10) == 2:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif empaqueter([1, 2, 3, 4, 5], 5) == 4:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif empaqueter([7, 6, 3, 4, 8, 5, 9, 2], 11) ==  4:\n    c+=\"1\"\nelse  :\n    c+=\"0\"",
+    "created_at": "2026-03-15T20:36:56.663366+00:00",
+    "ordering": 51
+  },
+  {
+    "id": 59,
+    "titre": "sépare 0 et 1",
+    "niveau": 3,
+    "enonce": "Écrire la fonction `separe` qui prend en paramètre un tableau `tab` dont les éléments sont des 0 et des 1. Cette fonction renvoie un tableau qui contient autant de 0 et de 1 qu'il y en a dans `tab` mais où tous les 0 sont placés en début de tableau et tous les 1 sont placés en fin de tableau.  \nExemples :  \n```\n>>> separe([1, 0, 1, 0, 1, 0, 1, 0])\n[0, 0, 0, 0, 1, 1, 1, 1]\n>>> separe([1, 0, 0, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0])\n[0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1]\n```",
+    "test": "c=\"\"\nif separe([1, 0, 1, 0, 1, 0, 1, 0]) ==  [0, 0, 0, 0, 1, 1, 1, 1]:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif separe([1, 0, 0, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0]) ==  [0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1]:\n    c+=\"1\"\nelse  :\n    c+=\"0\"",
+    "created_at": "2026-03-15T20:36:56.900565+00:00",
+    "ordering": 52
+  },
+  {
+    "id": 108,
+    "titre": "ecart max",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `ecart_max` qui prend en paramètre un tableau non vide de nombres `tab` et renvoie l'écart maximum entre deux valeurs du tableau (c'est-à-dire la différence entre la plus grande et la plus petite valeur). L'utilisation des fonctions natives `min` et `max` est interdite.  \nExemples :  \n```\n>>> ecart_max([1, 5, 10, 2])\n9\n>>> ecart_max([-5, 0, 5])\n10\n>>> ecart_max([3, 3, 3])\n0\n```",
+    "test": "c = \"\"\nif ecart_max([1, 5, 10, 2]) == 9:\n    c += \"1\"\nelse:\n    c += \"0\"\nif ecart_max([-5, 0, 5]) == 10:\n    c += \"1\"\nelse:\n    c += \"0\"\nif ecart_max([3, 3, 3]) == 0:\n    c += \"1\"\nelse:\n    c += \"0\"\nif ecart_max([1, 2, 10, 3]) == 9:\n    c += '1'\nelse:\n    c += '0'\nif ecart_max([42, 17, 99]) == 82:\n    c += \"1\"\nelse :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:37:00.035269+00:00",
+    "ordering": 53
+  },
+  {
+    "id": 69,
+    "titre": "prix article",
+    "niveau": 2,
+    "enonce": "On considère le stock d'un magasin. Ce stock est géré à l'aide d'un tableau contenant des dictionnaires. Chaque dictionnaire est composé de 3 clés : nom, prix et quantité  \nExemple :  \n```\n[{\"nom\": \"T-shirt\", \"prix\": 15, \"quantité\": 10},\n{\"nom\": \"Pantalon\", \"prix\": 30, \"quantité\": 5},\n{\"nom\": \"Chaussures\", \"prix\": 60, \"quantité\": 2}]\n```\nÉcrire une fonction `prix_article` qui prend en paramètres `inventaire` (le tableau de dictionnaires représentant l'inventaire) et `nom_article` (le nom de l'article recherché). La fonction doit renvoyer le prix de l'article si celui-ci est présent dans l'inventaire, et `-1` sinon.  \nExemples :  \n```\n>>> inv = [{\"nom\": \"T-shirt\", \"prix\": 15, \"quantité\": 10},\n          {\"nom\": \"Pantalon\", \"prix\": 30, \"quantité\": 5},\n          {\"nom\": \"Chaussures\", \"prix\": 60, \"quantité\": 2}]\n>>> prix_article(inv, \"Pantalon\")\n30\n>>> prix_article(inv, \"Pull\")\n-1\n```",
+    "test": "c = \"\"\ninv = [{\"nom\": \"T-shirt\", \"prix\": 15, \"quantité\": 10},  {\"nom\": \"Pantalon\", \"prix\": 30, \"quantité\": 5}, {\"nom\": \"Chaussures\", \"prix\": 60, \"quantité\": 2}]\nif prix_article(inv, \"Pantalon\") == 30:\n    c += \"1\"\nelse  :\n    c += \"0\"\nif prix_article(inv, \"Pull\") == -1 :\n    c += \"1\"\nelse  :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:57.543356+00:00",
+    "ordering": 54
+  },
+  {
+    "id": 56,
+    "titre": "un sur deux",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `un_sur_deux` qui prend en paramètre un tableau non vide `tab` contenant des entiers. Cette fonction renvoie un autre tableau contenant les entiers contenu dans `tab`, mais en gardant uniquement un entier sur deux.  \nExemples :  \n```\n>>>  un_sur_deux([3, 4, 12, 8, 43,7])\n[3, 12, 43]\n>>>  un_sur_deux([54, 5, 7, 14, 26, 54, 32])\n[54, 7, 26,32]\n```",
+    "test": "c = \"\"\nif un_sur_deux([3, 4, 12, 8, 43,7]) == [3, 12, 43]:\n    c += \"1\"\nelse  :\n    c += \"0\"\nif un_sur_deux([54, 5, 7, 14, 26, 54, 32]) == [54, 7, 26,32]:\n    c += \"1\"\nelse  :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:56.721199+00:00",
+    "ordering": 55
+  },
+  {
+    "id": 43,
+    "titre": "pair",
+    "niveau": 1,
+    "enonce": "Écrire une fonction `pair` qui prend en paramètre un entier `n`. Cette fonction renvoie `True` si n est pair et `False` si `n` est impair.  \nExemples :  \n```\n>>> pair(8)\nTrue\n>>> pair(5)\nFalse\n```",
+    "test": "c=\"\"\nif pair(8):\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif not pair(5):\n    c+=\"1\"\nelse  :\n    c+=\"0\"",
+    "created_at": "2026-03-15T20:36:55.941658+00:00",
+    "ordering": 56
+  },
+  {
+    "id": 14,
+    "titre": "premier et dernier",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `premier_dernier` qui prend en paramètre un tableau non vide `tab`. Cette fonction renvoie un tuple contenant le premier et le dernier éléments du tabeau `tab`.  \nExemples :  \n```\n>>> premier_dernier([4, 15, 34, 22])\n(4, 22)\n>>> premier_dernier([\"a\", \"f\", \"g\", \"z\"])\n(\"a\", \"z\")\n>>> premier_dernier([42])\n(42, 42)\n```",
+    "test": "c = \"\"\nif premier_dernier([4, 15, 34, 22]) == (4, 22):\n    c += \"1\"\nelse  :\n    c += \"0\"\nif premier_dernier([\"a\", \"f\", \"g\", \"z\"]) == (\"a\", \"z\"):\n    c += \"1\"\nelse  :\n    c += \"0\"\nif premier_dernier([42]) == (42, 42):\n    c += \"1\"\nelse  :\n    c += \"0\"\nif premier_dernier([1, 2, 3]) == (1, 3):\n    c += '1'\nelse:\n    c += '0'\nif premier_dernier(['A', 'B', 'C']) == ('A', 'C'):\n    c += \"1\"\nelse :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:54.096661+00:00",
+    "ordering": 57
+  },
+  {
+    "id": 17,
+    "titre": "tri sélection",
+    "niveau": 3,
+    "enonce": "Écrire une fonction `tri_selection` qui prend en paramètre un tableau `tab` de nombres entiers (type list) et qui renvoie un tableau trié par ordre croissant. Cette fonction doit utiliser l'algorithme du tri sélection.  \nExemple :  \n```\n>>> tri_selection([1, 52, 6, -9, 12])\n[-9, 1, 6, 12, 52]\n>>> tri_selection([6])\n[6]\n```",
+    "test": "c = \"\"\nif tri_selection([1, 52, 6, -9, 12]) == [-9, 1, 6, 12, 52]:\n    c += \"1\"\nelse  :\n    c += \"0\"\nif tri_selection([6]) == [6]:\n    c += \"1\"\nelse  :\n    c += \"0\"\nif tri_selection([3, 1, 2]) == [1, 2, 3]:\n    c += '1'\nelse:\n    c += '0'\nif tri_selection([9, 7, 8]) == [7, 8, 9]:\n    c += \"1\"\nelse :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:54.281178+00:00",
+    "ordering": 58
+  },
+  {
+    "id": 15,
+    "titre": "delta encoding",
+    "niveau": 3,
+    "enonce": "Le codage par différence (delta encoding en anglais) permet de compresser un tableau d’entiers dont les valeurs sont proches les unes des autres. Le principe est de stocker la première donnée en indiquant pour chaque autre donnée sa différence avec la précédente plutôt que la donnée elle-même.  \nOn se retrouve alors avec un tableau dont les valeurs sont plus petites, nécessitant moins de place en mémoire.  \nProgrammer la fonction `delta` qui prend en paramètre un tableau non vide de nombres entiers et qui renvoie un tableau contenant les valeurs entières compressées à l’aide cette technique.  \nExemples :  \n```\n>>> delta([1000, 800, 802, 1000, 1003])\n[1000, -200, 2, 198, 3]\n>>> delta([42])\n[42]\n```",
+    "test": "c = \"\"\nif delta([1000, 800, 802, 1000, 1003]) == [1000, -200, 2, 198, 3]:\n    c += \"1\"\nelse  :\n    c += \"0\"\nif delta([42]) == [42]:\n    c += \"1\"\nelse  :\n    c += \"0\"\nif delta([10, 15, 12]) == [10, 5, -3]:\n    c += '1'\nelse:\n    c += '0'\nif delta([100, 100, 100]) == [100, 0, 0]:\n    c += \"1\"\nelse :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:54.161701+00:00",
+    "ordering": 59
+  },
+  {
+    "id": 71,
+    "titre": "moyenne notes",
+    "niveau": 3,
+    "enonce": "Un professeur utilise un dictionnaire pour stocker les notes de ses élèves. Chaque clé du dictionnaire est le nom de l'élève (une chaîne de caractères), et la valeur associée est une liste de notes (des nombres décimaux).  \nDans le cas où un élève est absent à une évaluation, on saisie la chaine \"abs\" à la place de la  note.  \nExemple :  \n```\nnotes = {\n    \"Martine\" : [12, 11, 8, 15],\n    \"Anne-Marie\" : [15, 17, 12, 12],\n    \"Patrick\" : [\"abs\", 12, 11, 10],\n    \"Pierre-Louis\" : [\"abs\", \"abs\", \"abs\", \"abs\"]\n}\n```\nÉcrire une fonction `liste_moyenne` qui prend un paramètre un dictionnaire (même structure que ci-dessus). Cette fonction renvoie un tableau contenant des tuples. Chaque tuple contient le prénom de l'élève en première position et la moyenne de l'élève en deuxième position.  \nExemple :  \n```\n>>> notes = {\n    \"Martine\" : [12, 11, 8, 15],\n    \"Anne-Marie\" : [15, 17, 12, 12],\n    \"Patrick\" : [\"abs\", 12, 11, 10],\n    \"Pierre-Louis\" : [\"abs\", \"abs\", \"abs\", \"abs\"]\n}\n>>> liste_moyenne(notes)\n[('Martine', 11.5), ('Anne-Marie', 14.0), ('Patrick', 11.0), ('Pierre-Louis', 'abs')]\n```",
+    "test": "c = \"\"\nnotes = {\n    \"Martine\" : [12, 11, 8, 15],\n    \"Anne-Marie\" : [15, 17, 12, 12],\n    \"Patrick\" : [\"abs\", 12, 11, 10],\n    \"Pierre-Louis\" : [\"abs\", \"abs\", \"abs\", \"abs\"]\n}\nif liste_moyenne(notes) == [('Martine', 11.5), ('Anne-Marie', 14.0), ('Patrick', 11.0), ('Pierre-Louis', 'abs')]:\n    c += \"1\"\nelse  :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:57.665705+00:00",
+    "ordering": 60
+  },
+  {
+    "id": 100,
+    "titre": "compte voyelles",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `compte_voyelles` qui prend en paramètre une chaîne de caractères `mot` (contenant uniquement des lettres en minuscules) et renvoie le nombre de voyelles (a, e, i, o, u, y) qu'elle contient.  \nExemples :  \n```\n>>> compte_voyelles(\"bonjour\")\n3\n>>> compte_voyelles(\"rythme\")\n2\n>>> compte_voyelles(\"bcdfg\")\n0\n```",
+    "test": "c = \"\"\nif compte_voyelles(\"bonjour\") == 3:\n    c += \"1\"\nelse:\n    c += \"0\"\nif compte_voyelles(\"rythme\") == 2:\n    c += \"1\"\nelse:\n    c += \"0\"\nif compte_voyelles(\"bcdfg\") == 0:\n    c += \"1\"\nelse:\n    c += \"0\"\nif compte_voyelles('z') == 0:\n    c += '1'\nelse:\n    c += '0'",
+    "created_at": "2026-03-15T20:36:59.515421+00:00",
+    "ordering": 61
+  },
+  {
+    "id": 31,
+    "titre": "(T) recheche arbre binaire de recherche",
+    "niveau": 3,
+    "enonce": "Écrire une fonction `recherche_abr` qui prend en paramètre une instance de la classe `arbre T` (`T` étant un arbre binaire de recherche) et un entier `n`. Cette fonction renvoie `True` si `n` est présent dans `T` et `False` dans le cas contraire. \nLa classe Arbre possède 3 méthodes :  \n- `get_gauche()` renvoie l'arbre gauche  \n- g`et_droit()` renvoie l'arbre droit  \n- `get_valeur()` renvoie la valeur du noeud",
+    "test": "class ArbreBinaire:\n    def __init__(self, valeur):\n        self.valeur = valeur\n        self.enfant_gauche = None\n        self.enfant_droit = None   \n    def insert_gauche(self, valeur):\n        if self.enfant_gauche == None:\n            self.enfant_gauche = ArbreBinaire(valeur)\n        else:\n            new_node = ArbreBinaire(valeur)\n            new_node.enfant_gauche = self.enfant_gauche\n            self.enfant_gauche = new_node\n    def insert_droit(self, valeur):\n        if self.enfant_droit == None:\n            self.enfant_droit = ArbreBinaire(valeur)\n        else:\n            new_node = ArbreBinaire(valeur)\n            new_node.enfant_droit = self.enfant_droit\n            self.enfant_droit = new_node\n    def get_valeur(self):\n        return self.valeur    \n    def get_gauche(self):\n        return self.enfant_gauche\n    def get_droit(self):\n        return self.enfant_droit\nracine_r = ArbreBinaire(15)\nracine_r.insert_gauche(6)\nracine_r.insert_droit(18)\n\nr_6 = racine_r.get_gauche()\nr_6.insert_gauche(3)\nr_6.insert_droit(7)\n\nr_18 = racine_r.get_droit()\nr_18.insert_gauche(17)\nr_18.insert_droit(20)\n\nr_3 = r_6.get_gauche()\nr_3.insert_gauche(2)\nr_3.insert_droit(4)\n\nr_7 = r_6.get_droit()\nr_7.insert_droit(13)\n\nr_13 = r_7.get_droit()\nr_13.insert_gauche(9)\nc = \"\"\nif recherche_abr(racine_r,4):\n    c += \"1\"\nelse  :\n    c += \"0\"\nif not recherche_abr(racine_r,42):\n    c += \"1\"\nelse  :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:55.168929+00:00",
+    "ordering": 62
+  },
+  {
+    "id": 67,
+    "titre": "(T) hauteur d'un arbre binaire",
+    "niveau": 3,
+    "enonce": "Écrire une fonction `hauteur` qui prend en paramètre une instance de la classe `arbre T` et renvoie la hauteur de l'arbre binaire `T`.  \nLa classe `Arbre` possède 3 méthodes :  \n- `get_gauche()` renvoie l'arbre gauche  \n- `get_droit()` renvoie l'arbre droit  \n- `get_valeur()` renvoie la valeur du noeud",
+    "test": "class ArbreBinaire:\n    def __init__(self, valeur):\n        self.valeur = valeur\n        self.enfant_gauche = None\n        self.enfant_droit = None   \n    def insert_gauche(self, valeur):\n        if self.enfant_gauche == None:\n            self.enfant_gauche = ArbreBinaire(valeur)\n        else:\n            new_node = ArbreBinaire(valeur)\n            new_node.enfant_gauche = self.enfant_gauche\n            self.enfant_gauche = new_node\n    def insert_droit(self, valeur):\n        if self.enfant_droit == None:\n            self.enfant_droit = ArbreBinaire(valeur)\n        else:\n            new_node = ArbreBinaire(valeur)\n            new_node.enfant_droit = self.enfant_droit\n            self.enfant_droit = new_node\n    def get_valeur(self):\n        return self.valeur    \n    def get_gauche(self):\n        return self.enfant_gauche\n    def get_droit(self):\n        return self.enfant_droit\nracine = ArbreBinaire('A')\nracine.insert_gauche('B')\nracine.insert_droit('F')\n\nb_node = racine.get_gauche()\nb_node.insert_gauche('C')\nb_node.insert_droit('D')\n\nf_node = racine.get_droit()\nf_node.insert_gauche('G')\nf_node.insert_droit('H')\n\nc_node = b_node.get_gauche()\nc_node.insert_droit('E')\n\ng_node = f_node.get_gauche()\ng_node.insert_gauche('I')\n\nh_node = f_node.get_droit()\nh_node.insert_droit('J')\nc = \"\"\nif hauteur(racine) == 4:\n    c += \"1\"\nelse  :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:57.423856+00:00",
+    "ordering": 63
+  },
+  {
+    "id": 65,
+    "titre": "conversion Celsius fahrenheit",
+    "niveau": 1,
+    "enonce": "Écrire une fonction `convert_celsius_fahrenheit` qui prend en paramètre une température en degrés Celsius `temp_celsius` et qui renvoie la température équivalente en degrés Fahrenheit.\nLa formule de conversion est : `Fahrenheit = (Celsius * 9/5) + 32`\nExemple :\n```\n>>> convert_celsius_fahrenheit(0)\n32.0\n>>> convert_celsius_fahrenheit(100)\n212.0\n```",
+    "test": "c = \"\"\nif convert_celsius_fahrenheit(0) == 32.0:\n c += \"1\"\nelse:\n c += \"0\"\nif convert_celsius_fahrenheit(100) == 212.0:\n c += \"1\"\nelse:\n c += \"0\"",
+    "created_at": "2026-03-15T20:36:57.287787+00:00",
+    "ordering": 64
+  },
+  {
+    "id": 60,
+    "titre": "élève du mois",
+    "niveau": 3,
+    "enonce": "On considère la fonction `eleves_du_mois` prenant en paramètres eleves et notes deux tableaux de même longueur, le premier contenant le nom des élèves et le second, des entiers positifs désignant leur note à un contrôle de sorte que eleves[i] a obtenu la note notes[i].  \nCette fonction renvoie le couple constitué de la note maximale attribuée et des noms des élèves ayant obtenu cette note regroupés dans un tableau.  \nÉcrire la fonction `eleves_du_mois`.  \nExemples :  \n```\n>>> eleves_nsi = ['a','b','c','d','e','f','g','h','i','j']\n>>> notes_nsi = [30, 40, 80, 60, 58, 80, 75, 80, 60, 24]\n>>> eleves_du_mois(eleves_nsi, notes_nsi)\n(80, ['c', 'f', 'h'])\n>>> eleves_du_mois([],[])\n(0, [])\n```",
+    "test": "c=\"\"\neleves_nsi = ['a','b','c','d','e','f','g','h','i','j']\nnotes_nsi = [30, 40, 80, 60, 58, 80, 75, 80, 60, 24]\nif eleves_du_mois(eleves_nsi, notes_nsi) ==  (80, ['c', 'f', 'h']):\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif eleves_du_mois([],[]) ==  (0, []):\n    c+=\"1\"\nelse  :\n    c+=\"0\"",
+    "created_at": "2026-03-15T20:36:56.957482+00:00",
+    "ordering": 65
+  },
+  {
+    "id": 47,
+    "titre": "max dico",
+    "niveau": 3,
+    "enonce": "Sur le réseau social TipTop, on s’intéresse au nombre de « like » des abonnés. Les données sont stockées dans des dictionnaires où les clés sont les pseudos et les valeurs correspondantes sont les nombres de « like » comme ci-dessous :  \n```\n{ 'Bob': 102, 'Ada': 201, 'Alice': 103, 'Tim': 50 }\n```\nÉcrire une fonction `max_dico` qui :  \n• prend en paramètre un dictionnaire `dico` non vide dont les clés sont des chaînes de caractères et les valeurs associées sont des entiers ;  \n• et qui renvoie un tuple dont :  \n– la première valeur est une clé du dictionnaire associée à la valeur maximale ;  \n– la seconde valeur est cette valeur maximale.  \nExemples :  \n```\n>>> max_dico({ 'Bob': 102, 'Ada': 201, 'Alice': 103, 'Tim': 50 })\n('Ada', 201)\n>>> max_dico({ 'Alan': 222, 'Ada': 201, 'Eve': 222, 'Tim': 50 })\n('Alan', 222) # ou ('Eve', 222) également possible\n```",
+    "test": "c=\"\"\nif max_dico({ 'Bob': 102, 'Ada': 201, 'Alice': 103, 'Tim': 50 }) == ('Ada', 201) :\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif max_dico({ 'Alan': 222, 'Ada': 201, 'Eve': 222, 'Tim': 50 }) in [('Alan', 222),('Eve', 222)] :\n    c+=\"1\"\nelse  :\n    c+=\"0\"",
+    "created_at": "2026-03-15T20:36:56.180691+00:00",
+    "ordering": 66
+  },
+  {
+    "id": 26,
+    "titre": "recherche minimum",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `recherche_min` qui prend en paramètre un tableau de nombres `tab`, et qui renvoie l’indice de la première occurrence du minimum de ce tableau. Les tableaux seront représentés sous forme de liste Python.  \nIl est interdit d'utiliser les fonctions `min` et `index` de Python.  \nExemples :  \n```\n>>> recherche_min([5])\n0\n>>> recherche_min([2, 4, 1])\n2\n>>> recherche_min([5, 3, 2, 2, 4])\n2\n>>> recherche_min([-1, -2, -3, -3])\n2\n```",
+    "test": "c=\"\"\nif recherche_min([5]) == 0:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif recherche_min([2, 4, 1]) == 2:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif recherche_min([5, 3, 2, 2, 4]) == 2:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif recherche_min([-1, -2, -3, -3]) == 2:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif recherche_min([1, 2, 3]) == 0:\n    c += '1'\nelse:\n    c += '0'\nif recherche_min([10, 20, 30]) == 0:\n    c += \"1\"\nelse :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:54.842937+00:00",
+    "ordering": 67
+  },
+  {
+    "id": 11,
+    "titre": "prix TTC",
+    "niveau": 1,
+    "enonce": "Écrire une fonction `prix_ttc` qui prend en paramètres d'abord un prix hors taxes `ht` (un nombre) puis un taux de TVA `taux` en pourcentage (un nombre). La fonction renvoie le prix toutes taxes comprises (TTC) final.  \nExemples :  \n```\n>>> prix_ttc(100, 20)\n120.0\n>>> prix_ttc(50, 5.5)\n52.75\n```",
+    "test": "c = \"\"\nif prix_ttc(100, 20) == 120.0:\n    c += \"1\"\nelse:\n    c += \"0\"\nif prix_ttc(50, 5.5) == 52.75:\n    c += \"1\"\nelse:\n    c += \"0\"\nif round(prix_ttc(200, 10),1) == 220.0:\n    c += '1'\nelse:\n    c += '0'",
+    "created_at": "2026-03-15T20:36:53.892703+00:00",
+    "ordering": 68
+  },
+  {
+    "id": 20,
+    "titre": "nombre de répétitions",
+    "niveau": 2,
+    "enonce": "Écrire une fonction Python appelée `nb_repetitions` qui prend en paramètres un élément `elt` et un tableau `tab` (type list) d’éléments du même type et qui renvoie le nombre de fois où l’élément apparaît dans le tableau.  \nExemples :  \n```\n>>> nb_repetitions(5, [2, 5, 3, 5, 6, 9, 5])\n3\n>>> nb_repetitions('A', ['B', 'A', 'B', 'A', 'R'])\n2\n>>> nb_repetitions(12, [1, 3, 7, 21, 36, 44])\n0\n```",
+    "test": "c = \"\"\nif  nb_repetitions(5, [2, 5, 3, 5, 6, 9, 5]) == 3:\n    c += \"1\"\nelse  :\n    c += \"0\"\nif nb_repetitions('A', ['B', 'A', 'B', 'A', 'R']) == 2:\n    c += \"1\"\nelse  :\n    c += \"0\"\nif nb_repetitions(12, [1, 3, 7, 21, 36, 44]) == 0:\n    c += \"1\"\nelse  :\n    c += \"0\"\nif nb_repetitions(1, [1, 2, 1, 3, 1]) == 3:\n    c += '1'\nelse:\n    c += '0'\nif nb_repetitions('X', ['X', 'Y', 'X', 'Z']) == 2:\n    c += \"1\"\nelse :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:54.475866+00:00",
+    "ordering": 69
+  },
+  {
+    "id": 52,
+    "titre": "(T) recherche dichotomique récursive",
+    "niveau": 3,
+    "enonce": "Soit `tab` un tableau non vide d’entiers triés dans l’ordre croissant et `n` un entier.  \nLa fonction `chercher` doit renvoyer l'indice de position de `n` dans le dernier s'il s'y trouve et `None` s'il est absent du tableau  \nLa fonction recherche prend `n` en paramètre  \nL’algorithme demandé est une recherche dichotomique récursive.  \nÉcrire le code de la fonction `chercher`.  \n```\nExemples :\n>>> chercher([1, 5, 6, 9, 12], 7)\n>>> chercher([1, 5, 6, 9, 12], 9)\n3\n>>> chercher([1, 5, 6, 9, 12], 6)\n2\n```",
+    "test": "c=\"\"\nif chercher([1, 5, 6, 9, 12], 7) == None:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif chercher([1, 5, 6, 9, 12], 9) ==  3:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif chercher([1, 5, 6, 9, 12], 6) ==  2:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif chercher([1, 2, 3], 2) == 1:\n    c += '1'\nelse:\n    c += '0'\nif chercher([10, 20, 30], 20) == 1:\n    c += \"1\"\nelse :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:56.478284+00:00",
+    "ordering": 70
+  },
+  {
+    "id": 81,
+    "titre": "trouve element majoritaire",
+    "niveau": 3,
+    "enonce": "Écrire une fonction `element_majoritaire` qui prend en paramètre un tableau `tab` (type list) et qui renvoie l'élément majoritaire de ce tableau, c'est-à-dire l'élément qui apparaît plus de `n/2` fois dans le tableau, où `n` est la longueur du tableau. Si aucun élément n'est majoritaire, la fonction doit renvoyer `None`.  \nExemples :  \n```\n>>> element_majoritaire([1, 2, 2, 2, 1])\n2\n>>> element_majoritaire([1, 2, 3, 4, 5])\n>>> element_majoritaire([1, 1, 1, 2, 2])\n1\n```",
+    "test": "c = \"\"\nif element_majoritaire([1, 2, 2, 2, 1]) == 2:\n c += \"1\"\nelse:\n c += \"0\"\nif element_majoritaire([1, 2, 3, 4, 5]) == None:\n c += \"1\"\nelse:\n c += \"0\"\nif element_majoritaire([1, 1, 1, 2, 2]) == 1:\n c += \"1\"\nelse:\n c += \"0\"",
+    "created_at": "2026-03-15T20:36:58.272621+00:00",
+    "ordering": 71
+  },
+  {
+    "id": 106,
+    "titre": "remplace",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `remplace` qui prend en paramètres une chaîne de caractères `texte`, un caractère `c1` et un caractère `c2`. La fonction renvoie une nouvelle chaîne où toutes les occurrences de `c1` dans `texte` ont été remplacées par `c2`. L'utilisation de la méthode native `replace` est interdite.  \nExemples :  \n```\n>>> remplace(\"bonjour\", \"o\", \"a\")\n'banjaur'\n>>> remplace(\"test\", \"z\", \"e\")\n'test'\n>>> remplace(\"\", \"a\", \"b\")\n''\n```",
+    "test": "c = \"\"\nif remplace(\"bonjour\", \"o\", \"a\") == \"banjaur\":\n    c += \"1\"\nelse:\n    c += \"0\"\nif remplace(\"test\", \"z\", \"e\") == \"test\":\n    c += \"1\"\nelse:\n    c += \"0\"\nif remplace(\"\", \"a\", \"b\") == \"\":\n    c += \"1\"\nelse:\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:59.912571+00:00",
+    "ordering": 72
+  },
+  {
+    "id": 22,
+    "titre": "recherche motif",
+    "niveau": 3,
+    "enonce": "Écrire une fonction `recherche_motif` qui prend en paramètres une chaîne de caractères motif non vide et une chaîne de caractères texte et qui renvoie la liste des positions de motif dans texte. Si motif n’apparaît pas, la fonction renvoie une liste vide.  \nExemples:  \n```\n>>> recherche_motif(\"ab\", \"\")\n[]\n>>> recherche_motif(\"ab\", \"cdcdcdcd\")\n[]\n>>> recherche_motif(\"ab\", \"abracadabra\")\n[0, 7]\n>>> recherche_motif(\"ab\", \"abracadabraab\")\n[0, 7, 11]\n```",
+    "test": "c=\"\"\nif recherche_motif(\"ab\", \"\") == []:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif recherche_motif(\"ab\", \"cdcdcdcd\") == []:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif recherche_motif(\"ab\", \"abracadabra\") == [0, 7]:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif recherche_motif(\"ab\", \"abracadabraab\") == [0, 7, 11]:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif recherche_motif('aa', 'aaa') == [0, 1]:\n    c += '1'\nelse:\n    c += '0'\nif recherche_motif('ab', 'abracadabra') == [0, 7]:\n    c += \"1\"\nelse :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:54.600398+00:00",
+    "ordering": 73
+  },
+  {
+    "id": 36,
+    "titre": "nombre d’occurrences d’un caractère",
+    "niveau": 3,
+    "enonce": "Le nombre d’occurrences d’un caractère dans une chaîne de caractères est le nombre d’apparitions de ce caractère dans la chaîne.  \nExemples :  \n• le nombre d’occurrences du caractère 'o' dans 'bonjour' est 2 ;  \n• le nombre d’occurrences du caractère 'b' dans 'Bébé' est 1 ;  \n• le nombre d’occurrences du caractère 'B' dans 'Bébé' est 1 ;  \n• le nombre d’occurrences du caractère ' ' dans 'Hello world !' est 2.  \nOn cherche les occurrences des caractères dans une phrase. On souhaite stocker ces occurrences dans un dictionnaire dont les clefs seraient les caractères de la phrase et les valeurs le nombre d’occurrences de ces caractères.  \nPar exemple : avec la phrase 'Hello world !' le dictionnaire est le suivant :  \n``` \n{'H': 1,'e': 1,'l': 3,'o': 2,' ': 2,'w': 1,'r': 1,'d': 1,'!': 1}\n```  \nL’ordre des clefs n’a pas d’importance.  \nÉcrire une fonction `nbr_occurrences` prenant comme paramètre une chaîne de caractères `chaine` et renvoyant le dictionnaire des nombres d’occurrences des caractères de cette chaîne.",
+    "test": "c=\"\"\nif nbr_occurrences('Hello world !') == {'H': 1,'e': 1,'l': 3,'o': 2,' ': 2,'w': 1,'r': 1,'d': 1,'!': 1}:\n    c+=\"1\"\nelse  :\n    c+=\"0\"",
+    "created_at": "2026-03-15T20:36:55.48993+00:00",
+    "ordering": 74
+  },
+  {
+    "id": 62,
+    "titre": "calcul du carré d'un nombre",
+    "niveau": 1,
+    "enonce": "Écrire une fonction `carre` qui prend en paramètre un nombre `x` et qui renvoie le carré de ce nombre.\nExemple :\n```\n>>> carre(5)\n25\n```",
+    "test": "c = \"\"\nif carre(5) == 25:\n  c += \"1\"\nelse:\n  c += \"0\"",
+    "created_at": "2026-03-15T20:36:57.085292+00:00",
+    "ordering": 75
+  },
+  {
+    "id": 97,
+    "titre": "tous positifs",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `tous_positifs` qui prend en paramètre un tableau de nombres entiers `tab` et qui renvoie `True` si tous les éléments du tableau sont strictement positifs et `False` sinon. Un tableau vide doit renvoyer `True`.  \nExemples :  \n```\n>>> tous_positifs([1, 5, 2, 9])\nTrue\n>>> tous_positifs([1, -3, 5])\nFalse\n>>> tous_positifs([])\nTrue\n```",
+    "test": "c = \"\"\nif tous_positifs([1, 5, 2, 9]) == True:\n    c += \"1\"\nelse:\n    c += \"0\"\nif tous_positifs([1, -3, 5]) == False:\n    c += \"1\"\nelse:\n    c += \"0\"\nif tous_positifs([]) == True:\n    c += \"1\"\nelse:\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:59.339407+00:00",
+    "ordering": 76
+  },
+  {
+    "id": 7,
+    "titre": "est bissextile",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `est_bissextile` qui prend en paramètre un entier positif `annee` et qui renvoie `True` si l'année est bissextile, et `False` sinon.  \nRappel : une année est bissextile si elle est divisible par 4 mais non divisible par 100. Les années divisibles par 400 sont également bissextiles.  \nExemples :  \n```\n>>> est_bissextile(2020)\nTrue\n>>> est_bissextile(2100)\nFalse\n>>> est_bissextile(2000)\nTrue\n```",
+    "test": "c = \"\"\nif est_bissextile(2020) == True:\n    c += \"1\"\nelse:\n    c += \"0\"\nif est_bissextile(2100) == False:\n    c += \"1\"\nelse:\n    c += \"0\"\nif est_bissextile(2000) == True:\n    c += \"1\"\nelse:\n    c += \"0\"\nif est_bissextile(2024) == True:\n    c += '1'\nelse:\n    c += '0'\nif est_bissextile(1900) == False:\n    c += \"1\"\nelse :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:53.64477+00:00",
+    "ordering": 77
+  },
+  {
+    "id": 101,
+    "titre": "renverse tableau",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `renverse_tableau` qui prend en paramètre un tableau `tab` et renvoie un NOUVEAU tableau contenant les mêmes éléments mais dans l'ordre inverse. Il est interdit d'utiliser la méthode `reverse` de Python ou les slices comme `[::-1]`.  \nExemples :  \n```\n>>> renverse_tableau([1, 2, 3])\n[3, 2, 1]\n>>> renverse_tableau([\"a\", \"b\"])\n['b', 'a']\n>>> renverse_tableau([])\n[]\n```",
+    "test": "c = \"\"\nif renverse_tableau([1, 2, 3]) == [3, 2, 1]:\n    c += \"1\"\nelse:\n    c += \"0\"\nif renverse_tableau([\"a\", \"b\"]) == [\"b\", \"a\"]:\n    c += \"1\"\nelse:\n    c += \"0\"\nif renverse_tableau([]) == []:\n    c += \"1\"\nelse:\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:59.593459+00:00",
+    "ordering": 78
+  },
+  {
+    "id": 39,
+    "titre": "aire cercle",
+    "niveau": 1,
+    "enonce": "Écrire une fonction `aire_cercle` qui prend en paramètre le rayon d'un cercle `r` et qui renvoie l'aire du cercle.  \nExemple :  \n```\n>>> aire_cercle(2)\n28.274\n```",
+    "test": "c=\"\"\nimport math\nif round(aire_cercle(3)) == 28:\n    c+=\"1\"\nelse  :\n    c+=\"0\"",
+    "created_at": "2026-03-15T20:36:55.695596+00:00",
+    "ordering": 79
+  },
+  {
+    "id": 86,
+    "titre": "calcul surface rectangle",
+    "niveau": 1,
+    "enonce": "Écrire une fonction `surface_rectangle` qui prend en paramètre la longueur `L` et la largeur `l` d'un rectangle et qui renvoie la surface de ce rectangle.  \nExemple :  \n```\n>>> surface_rectangle(5, 3)\n15\n```",
+    "test": "c = \"\"\nif surface_rectangle(5, 3) == 15:\n c += \"1\"\nelse:\n c += \"0\"",
+    "created_at": "2026-03-15T20:36:58.633208+00:00",
+    "ordering": 80
+  },
+  {
+    "id": 13,
+    "titre": "mention bac",
+    "niveau": 1,
+    "enonce": "Écrire une fonction `mention_bac` qui prend en paramètre une note `moyenne` sur 20 et renvoie une chaîne de caractères correspondant à la mention :  \n- \"Très bien\" pour une moyenne supérieure ou égale à 16.  \n- \"Bien\" pour une moyenne entre 14 (inclus) et 16 (exclu).  \n- \"Assez bien\" pour une moyenne entre 12 (inclus) et 14 (exclu).  \n- \"Passable\" pour une moyenne entre 10 (inclus) et 12 (exclu).  \n- \"Recalé\" si la moyenne est strictement inférieure à 10.  \nExemples :  \n```\n>>> mention_bac(16.5)\n'Très bien'\n>>> mention_bac(12)\n'Assez bien'\n>>> mention_bac(8.5)\n'Recalé'\n```",
+    "test": "c = \"\"\nif mention_bac(16.5) == 'Très bien':\n    c += \"1\"\nelse:\n    c += \"0\"\nif mention_bac(12) == 'Assez bien':\n    c += \"1\"\nelse:\n    c += \"0\"\nif mention_bac(8.5) == 'Recalé':\n    c += \"1\"\nelse:\n    c += \"0\"\nif mention_bac(14.5) == 'Bien':\n    c += '1'\nelse:\n    c += '0'\nif mention_bac(11) == 'Passable':\n    c += \"1\"\nelse :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:54.03542+00:00",
+    "ordering": 81
+  },
+  {
+    "id": 109,
+    "titre": "intersection tableaux",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `intersection` qui prend en paramètres deux tableaux d'entiers `tab1` et `tab2` sans doublons et qui renvoie un nouveau tableau contenant les éléments présents à la fois dans `tab1` et `tab2`, dans leur ordre d'apparition dans `tab1`.  \nExemples :  \n```\n>>> intersection([1, 2, 3], [2, 3, 4])\n[2, 3]\n>>> intersection([1, 5, 9, 2], [5, 2, 8])\n[5, 2]\n>>> intersection([1, 2], [3, 4])\n[]\n```",
+    "test": "c = \"\"\nif intersection([1, 2, 3], [2, 3, 4]) == [2, 3]:\n    c += \"1\"\nelse:\n    c += \"0\"\nif intersection([1, 5, 9, 2], [5, 2, 8]) == [5, 2]:\n    c += \"1\"\nelse:\n    c += \"0\"\nif intersection([1, 2], [3, 4]) == []:\n    c += \"1\"\nelse:\n    c += \"0\"",
+    "created_at": "2026-03-15T20:37:00.093579+00:00",
+    "ordering": 82
+  },
+  {
+    "id": 28,
+    "titre": "plus grande valeur",
+    "niveau": 1,
+    "enonce": "Écrire une fonction `plus_grande` qui prend en paramètres deux entiers `a` et `b`. Cette fonction renvoie `a` si `a` est plus grand que `b` et renvoie `b` si `b` est plus grand que `a`.  \nExemples :  \n```\n>>> plus_grande(15,3)\n15\n>>> plus_grande(-15,-3)\n-3\n```",
+    "test": "c = \"\"\nif plus_grande(15,3) == 15:\n    c += \"1\"\nelse  :\n    c += \"0\"\nif plus_grande(-15,-3) == -3:\n    c += \"1\"\nelse  :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:54.979168+00:00",
+    "ordering": 83
+  },
+  {
+    "id": 45,
+    "titre": "somme",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `somme` qui prend en paramètre un tableau d'entiers `tab` (de type list). Cette fonction renvoie la somme des éléments présents dans `tab`.  \nIl est interdit d'utiliser la fonction Python `sum`.  \nExemples :  \n```\n>>> somme([5, 4, 7])\n16\n>>> somme([])\n0\n```",
+    "test": "c=\"\"\nif somme([5, 4, 7]) == 16:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif somme([]) == 0:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\n\nif somme([1, 2, 3, 4]) == 10:\n    c += \"1\"\nelse :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:56.06572+00:00",
+    "ordering": 84
+  },
+  {
+    "id": 27,
+    "titre": "ajoute dictionnaire",
+    "niveau": 3,
+    "enonce": "Écrire une fonction `ajoute_dictionnaires` qui prend en paramètres deux dictionnaires `d1` et `d2` dont les clés et les valeurs associées sont des nombres et renvoie le dictionnaire d défini de la façon suivante :  \n• les clés de `d` sont celles de `d1` et celles de `d2` réunies ;  \n• si une clé est présente dans les deux dictionnaires `d1` et `d2`, sa valeur associée dans le dictionnaire `d` est la somme de ses valeurs dans les dictionnaires `d1` et `d2` ;  \n• si une clé n’est présente que dans un des deux dictionnaires, sa valeur associée dans le dictionnaire `d` est la même que sa valeur dans le dictionnaire où elle est présente.  \nExemples :  \n```\n>>> ajoute_dictionnaires({1: 5, 2: 7}, {2: 9, 3: 11})\n{1: 5, 2: 16, 3: 11}\n>>> ajoute_dictionnaires({}, {2: 9, 3: 11})\n{2: 9, 3: 11}\n>>> ajoute_dictionnaires({1: 5, 2: 7}, {})\n{1: 5, 2: 7}\n```",
+    "test": "c=\"\"\nif ajoute_dictionnaires({1: 5, 2: 7}, {2: 9, 3: 11}) == {1: 5, 2: 16, 3: 11}:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif ajoute_dictionnaires({}, {2: 9, 3: 11}) == {2: 9, 3: 11}:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif ajoute_dictionnaires({1: 5, 2: 7}, {}) == {1: 5, 2: 7}:\n    c+=\"1\"\nelse  :\n    c+=\"0\"",
+    "created_at": "2026-03-15T20:36:54.919428+00:00",
+    "ordering": 85
+  },
+  {
+    "id": 64,
+    "titre": "(T) parcours infixe d'un arbre binaire",
+    "niveau": 3,
+    "enonce": "Écrire une fonction `parcours_infixe` qui prend en paramètre une instance de la classe `arbre T` et renvoie un tableau (de type list) contenant les valeurs des noeuds de l'arbre `T` classés dans un ordre compatible avec un parcours infixe de l'arbre binaire `T`.  \nLa classe `Arbre` possède 3 méthodes :  \n- `get_gauche()` renvoie l'arbre gauche  \n- `get_droit()` renvoie l'arbre droit  \n- `get_valeur()` renvoie la valeur du noeud",
+    "test": "class ArbreBinaire:\n    def __init__(self, valeur):\n        self.valeur = valeur\n        self.enfant_gauche = None\n        self.enfant_droit = None   \n    def insert_gauche(self, valeur):\n        if self.enfant_gauche == None:\n            self.enfant_gauche = ArbreBinaire(valeur)\n        else:\n            new_node = ArbreBinaire(valeur)\n            new_node.enfant_gauche = self.enfant_gauche\n            self.enfant_gauche = new_node\n    def insert_droit(self, valeur):\n        if self.enfant_droit == None:\n            self.enfant_droit = ArbreBinaire(valeur)\n        else:\n            new_node = ArbreBinaire(valeur)\n            new_node.enfant_droit = self.enfant_droit\n            self.enfant_droit = new_node\n    def get_valeur(self):\n        return self.valeur    \n    def get_gauche(self):\n        return self.enfant_gauche\n    def get_droit(self):\n        return self.enfant_droit\nracine = ArbreBinaire('A')\nracine.insert_gauche('B')\nracine.insert_droit('F')\n\nb_node = racine.get_gauche()\nb_node.insert_gauche('C')\nb_node.insert_droit('D')\n\nf_node = racine.get_droit()\nf_node.insert_gauche('G')\nf_node.insert_droit('H')\n\nc_node = b_node.get_gauche()\nc_node.insert_droit('E')\n\ng_node = f_node.get_gauche()\ng_node.insert_gauche('I')\n\nh_node = f_node.get_droit()\nh_node.insert_droit('J')\nc = \"\"\nif parcours_infixe(racine) == ['C', 'E', 'B', 'D', 'A', 'I', 'G', 'F', 'H', 'J']:\n    c += \"1\"\nelse  :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:57.21563+00:00",
+    "ordering": 86
+  },
+  {
+    "id": 87,
+    "titre": "trouve le plus long mot",
+    "niveau": 3,
+    "enonce": "Écrire une fonction `trouve_plus_long_mot` qui prend en paramètre un tableau de chaines de caractères `mots` (type list) non vide et qui renvoie le mot le plus long de ce tableau. S'il y a plusieurs mots de même longueur maximale, la fonction renvoie le premier mot rencontré dans le tableau.\nExemples :\n```\n>>> trouve_plus_long_mot([\"chat\", \"chien\", \"oiseau\"])\n'oiseau'\n>>> trouve_plus_long_mot([\"pomme\", \"banane\", \"kiwi\", \"fraise\"])\n'banane'\n>>> trouve_plus_long_mot([\"a\", \"bb\", \"ccc\"])\n'ccc'\n```",
+    "test": "c = \"\"\nif trouve_plus_long_mot([\"chat\", \"chien\", \"oiseau\"]) == 'oiseau':\n    c += \"1\"\nelse:\n    c += \"0\"\nif trouve_plus_long_mot([\"pomme\", \"banane\", \"kiwi\", \"fraise\"]) == 'banane':\n    c += \"1\"\nelse:\n    c += \"0\"\nif trouve_plus_long_mot([\"a\", \"bb\", \"ccc\"]) == 'ccc':\n    c += \"1\"\nelse:\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:58.696172+00:00",
+    "ordering": 87
+  },
+  {
+    "id": 95,
+    "titre": "est un triangle rectangle ?",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `est_rectangle` qui prend en paramètre trois entiers `a`, `b` et `c`, représentant les longueurs des côtés d'un triangle. La fonction doit renvoyer `True` si le triangle est rectangle et `False sinon`. On suppose que `c` est la longueur du côté le plus grand.  \nExemples :  \n```\n>>> est_rectangle(3, 4, 5)\nTrue\n>>> est_rectangle(5, 12, 13)\nTrue\n>>> est_rectangle(6, 8, 11)\nFalse\n```",
+    "test": "c = \"\"\nif est_rectangle(3, 4, 5):\n c += \"1\"\nelse:\n c += \"0\"\nif est_rectangle(5, 12, 13):\n c += \"1\"\nelse:\n c += \"0\"\nif not est_rectangle(6, 8, 11):\n c += \"1\"\nelse:\n c += \"0\"",
+    "created_at": "2026-03-15T20:36:59.21449+00:00",
+    "ordering": 88
+  },
+  {
+    "id": 83,
+    "titre": "somme des chiffres",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `somme_chiffres` qui prend en paramètre une chaîne de caractères nombre représentant un entier positif. La fonction doit renvoyer la somme des chiffres composant ce nombre.  \nExemples :  \n```\n>>> somme_chiffres(\"123\")\n6\n>>> somme_chiffres(\"4567\")\n22\n>>> somme_chiffres(\"0\")\n0\n```",
+    "test": "c = \"\"\nif somme_chiffres(\"123\") == 6:\n c += \"1\"\nelse:\n c += \"0\"\nif somme_chiffres(\"4567\") == 22:\n c += \"1\"\nelse:\n c += \"0\"\nif somme_chiffres(\"0\") == 0:\n c += \"1\"\nelse:\n c += \"0\"",
+    "created_at": "2026-03-15T20:36:58.420363+00:00",
+    "ordering": 89
+  },
+  {
+    "id": 72,
+    "titre": "(T) calculatrice RPN",
+    "niveau": 3,
+    "enonce": "Écrire une fonction Python `rpn_calcul` qui prend en paramètre une expression `expr` sous forme d'un tableau de chaînes de caractères représentant une expression en notation polonaise inverse. Cette fonction doit renvoiyer le résultat du calcul. L'expression contient des nombres et des opérateurs (+, -, *, /).  \nUtilisez une pile pour effectuer le calcul.  \nParcourez la liste expression.  \nSi un élément est un nombre, empilez-le sur la pile.  \nSi un élément est un opérateur (+, -, *, /), dépilez les deux derniers éléments de la pile, effectuez l'opération correspondante, et empilez le résultat.  \nExemples :  \n```\n>>> rpn_calcul([\"3\", \"4\", \"+\"])\n7\n>>> rpn_calcul([\"4\", \"2\", \"-\"])\n2\n>>>  rpn_calcul([\"10\", \"5\", \"+\", \"3\", \"*\"])\n45\n>>> rpn_calcul([\"15\", \"7\", \"1\", \"+\", \"-\", \"3\", \"*\"])\n21\n```",
+    "test": "c = \"\"\nif rpn_calcul([\"3\", \"4\", \"+\"]) == 7:\n    c += \"1\"\nelse  :\n    c += \"0\"\nif rpn_calcul([\"4\", \"2\", \"-\"]) == 2:\n    c += \"1\"\nelse  :\n    c += \"0\"\nif rpn_calcul([\"10\", \"5\", \"+\", \"3\", \"*\"]) == 45:\n    c += \"1\"\nelse  :\n    c += \"0\"\nif rpn_calcul([\"15\", \"7\", \"1\", \"+\", \"-\", \"3\", \"*\"]) == 21:\n    c += \"1\"\nelse  :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:57.723419+00:00",
+    "ordering": 90
+  },
+  {
+    "id": 103,
+    "titre": "filtre pairs",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `filtre_pairs` qui prend en paramètre un tableau d'entiers `tab` et renvoie un nouveau tableau contenant uniquement les nombres pairs de `tab` dans leur ordre d'apparition.  \nExemples :  \n```\n>>> filtre_pairs([1, 2, 3, 4, 5])\n[2, 4]\n>>> filtre_pairs([1, 3, 5])\n[]\n>>> filtre_pairs([2, -4, 6])\n[2, -4, 6]\n```",
+    "test": "c = \"\"\nif filtre_pairs([1, 2, 3, 4, 5]) == [2, 4]:\n    c += \"1\"\nelse:\n    c += \"0\"\nif filtre_pairs([1, 3, 5]) == []:\n    c += \"1\"\nelse:\n    c += \"0\"\nif filtre_pairs([2, -4, 6]) == [2, -4, 6]:\n    c += \"1\"\nelse:\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:59.7197+00:00",
+    "ordering": 91
+  },
+  {
+    "id": 23,
+    "titre": "recherche indice classement",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `recherche_indices_classement` qui prend en paramètres un entier `elt` et un tableau d’entiers `tab` représenté par une liste Python, et qui renvoie trois listes Python d’entiers:  \n• la première liste contient les indices des valeurs du tableau tab strictement inférieures à elt ;  \n• la deuxième liste contient les indices des valeurs du tableau tab égales à elt ;  \n• la troisième liste contient les indices des valeurs du tableau tab strictement supérieures à elt.  \nExemples :  \n```\n>>> recherche_indices_classement(3, [1, 3, 4, 2, 4, 6, 3, 0])\n([0, 3, 7], [1, 6], [2, 4, 5])\n>>> recherche_indices_classement(3, [1, 4, 2, 4, 6, 0])\n([0, 2, 5], [], [1, 3, 4])\n>>>recherche_indices_classement(3, [1, 1, 1, 1])\n([0, 1, 2, 3], [], [])\n>>> recherche_indices_classement(3, [])\n([], [], [])\n```",
+    "test": "c=\"\"\nif recherche_indices_classement(3, [1, 3, 4, 2, 4, 6, 3, 0]) == ([0, 3, 7], [1, 6], [2, 4, 5]):\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif recherche_indices_classement(3, [1, 4, 2, 4, 6, 0]) == ([0, 2, 5], [], [1, 3, 4]):\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif recherche_indices_classement(3, [1, 1, 1, 1]) == ([0, 1, 2, 3], [], []):\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif recherche_indices_classement(3, []) == ([], [], []):\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif recherche_indices_classement(10, [5, 10, 15]) == ([0], [1], [2]):\n    c += '1'\nelse:\n    c += '0'",
+    "created_at": "2026-03-15T20:36:54.665674+00:00",
+    "ordering": 92
+  },
+  {
+    "id": 29,
+    "titre": "couples consecutifs",
+    "niveau": 3,
+    "enonce": "Écrire une fonction `couples_consecutifs` qui prend en paramètre un tableau de nombres entiers `tab` non vide (type list), et qui renvoie la liste Python (éventuellement vide) des couples d’entiers consécutifs successifs qu’il peut y avoir dans `tab`.  \nExemples :  \n```\n>>> couples_consecutifs([1, 4, 3, 5])\n[]\n>>> couples_consecutifs([1, 4, 5, 3])\n[(4, 5)]\n>>> couples_consecutifs([1, 1, 2, 4])\n[(1, 2)]\n>>> couples_consecutifs([7, 1, 2, 5, 3, 4])\n[(1, 2), (3, 4)]\n>>> couples_consecutifs([5, 1, 2, 3, 8, -5, -4, 7])\n[(1, 2), (2, 3), (-5, -4)]\n```",
+    "test": "c=\"\"\nif couples_consecutifs([1, 4, 3, 5]) == []:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif couples_consecutifs([1, 4, 5, 3]) == [(4, 5)]:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif couples_consecutifs([1, 1, 2, 4]) == [(1, 2)]:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif couples_consecutifs([7, 1, 2, 5, 3, 4]) == [(1, 2), (3, 4)]:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif couples_consecutifs([5, 1, 2, 3, 8, -5, -4, 7]) == [(1, 2), (2, 3), (-5, -4)]:\n    c+=\"1\"\nelse  :\n    c+=\"0\"",
+    "created_at": "2026-03-15T20:36:55.046074+00:00",
+    "ordering": 93
+  },
+  {
+    "id": 82,
+    "titre": "plus petit que la moyenne",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `plus_petit_moyenne` qui prend en paramètre un tableau non vide de nombres `tab` (de type list) et qui renvoie un tableau contenant les nombres de tab strictement inférieurs à la moyenne des nombres contenus dans `tab`.  \nExemples :  \n```\n>>> plus_petit_moyenne([1, 2, 3, 4, 5])\n[1, 2]\n>>> plus_petit_moyenne([10, 20, 30, 40, 50])\n[10, 20]\n>>> plus_petit_moyenne([1, 1, 1, 1, 1])\n[]\n```",
+    "test": "c = \"\"\nif plus_petit_moyenne([1, 2, 3, 4, 5]) == [1, 2]:\n    c += \"1\"\nelse:\n    c += \"0\"\nif plus_petit_moyenne([10, 20, 30, 40, 50]) == [10, 20]:\n    c += \"1\"\nelse:\n    c += \"0\"\nif plus_petit_moyenne([1, 1, 1, 1, 1]) == []:\n    c += \"1\"\nelse:\n    c += \"0\"\nif plus_petit_moyenne([5, 15]) == [5]:\n    c += '1'\nelse:\n    c += '0'",
+    "created_at": "2026-03-15T20:36:58.337175+00:00",
+    "ordering": 94
+  },
+  {
+    "id": 75,
+    "titre": "est divisible",
+    "niveau": 1,
+    "enonce": "Écrire une fonction `est_divisible` qui prend en paramètre deux entiers `a` et `b`. Cette fonction renvoie `True` si `a` est divisible par `b` et `False` dans le cas contraire.  \nExemples :  \n```\n>>> est_divisible(10, 2)\nTrue\n>>> est_divisible(7, 3)\nFalse\n```",
+    "test": "c = \"\"\nif est_divisible(10, 2):\n c += \"1\"\nelse:\n c += \"0\"\nif not est_divisible(7, 3):\n c += \"1\"\nelse:\n c += \"0\"",
+    "created_at": "2026-03-15T20:36:57.901542+00:00",
+    "ordering": 95
+  },
+  {
+    "id": 73,
+    "titre": "supprimer doublon",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `supprimer_doublons` qui prend en argument un tableau `tab` et qui renvoie un tableau contenant les mêmes éléments que la liste d'entrée, mais sans doublons.  \nExemples :  \n```\n>>> supprimer_doublons([1, 2, 2, 3, 4, 4, 5, 3, 1])\n[1, 2, 3, 4, 5]\n>>> supprimer_doublons([5, 15, 22, 5, 8, 2, 5, 2, 1])\n[5, 15, 22, 8, 2, 1]\n>>> supprimer_doublons([1, 1, 1, 1, 1])\n[1]\n>>> supprimer_doublons([])\n[]\n```",
+    "test": "c = \"\"\nif supprimer_doublons([1, 2, 2, 3, 4, 4, 5, 3, 1]) == [1, 2, 3, 4, 5]:\n    c += \"1\"\nelse  :\n    c += \"0\"\nif supprimer_doublons([5, 15, 22, 5, 8, 2, 5, 2, 1]) == [5, 15, 22, 8, 2, 1]:\n    c += \"1\"\nelse  :\n    c += \"0\"\nif supprimer_doublons([1, 1, 1, 1, 1]) == [1]:\n    c += \"1\"\nelse  :\n    c += \"0\"\nif supprimer_doublons([]) == []:\n    c += \"1\"\nelse  :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:57.782417+00:00",
+    "ordering": 96
+  },
+  {
+    "id": 89,
+    "titre": "calcul du périmètre d'un rectangle",
+    "niveau": 1,
+    "enonce": "Écrire une fonction `perimetre_rectangle` qui prend en paramètre la longueur `L` et la largeur `l` d'un rectangle et qui renvoie le périmètre de ce rectangle.  \nExemple :  \n```\n>>> perimetre_rectangle(5, 3)\n16\n```",
+    "test": "c = \"\"\nif perimetre_rectangle(5, 3) == 16:\n  c += \"1\"\nelse:\n  c += \"0\"",
+    "created_at": "2026-03-15T20:36:58.814368+00:00",
+    "ordering": 97
+  },
+  {
+    "id": 93,
+    "titre": "(T) est un palindrome bis",
+    "niveau": 3,
+    "enonce": "Écrire une fonction récursive `est_palindrome_recursive` qui prend en paramètre une chaîne de caractères `mot` et qui renvoie `True` si `mot` est un palindrome, et `False` sinon.  \nUn mot est un palindrome s'il se lit de la même manière de gauche à droite et de droite à gauche.  \nExemples :  \n```\n>>> est_palindrome_recursive(\"radar\")\nTrue\n>>> est_palindrome_recursive(\"python\")\nFalse\n>>> est_palindrome_recursive(\"\")\nTrue\n>>> est_palindrome_recursive(\"a\")\nTrue\n```",
+    "test": "c = \"\"\nif est_palindrome_recursive(\"radar\"):\n  c += \"1\"\nelse:\n  c += \"0\"\nif not est_palindrome_recursive(\"python\"):\n  c += \"1\"\nelse:\n  c += \"0\"\nif est_palindrome_recursive(\"\"):\n  c += \"1\"\nelse:\n  c += \"0\"\nif est_palindrome_recursive(\"a\"):\n  c += \"1\"\nelse:\n  c += \"0\"",
+    "created_at": "2026-03-15T20:36:59.079107+00:00",
+    "ordering": 98
+  },
+  {
+    "id": 37,
+    "titre": "temperature minimale",
+    "niveau": 3,
+    "enonce": "On a relevé les valeurs moyennes annuelles des températures à Paris pour la période allant de 2013 à 2019. Les résultats ont été récupérés sous la forme de deux tableaux (de type list) : l’un pour les températures, l’autre pour les années :  \n```\nt_moy = [14.9, 13.3, 13.1, 12.5, 13.0, 13.6, 13.7]\nannees = [2013, 2014, 2015, 2016, 2017, 2018, 2019]\n```\nÉcrire la fonction `annee_temperature_minimale` qui prend en paramètres ces deux tableaux et qui renvoie la plus petite valeur relevée au cours de la période et l’année correspondante.  \nOn suppose que la température minimale est atteinte une seule fois.  \nExemple :  \n```\n>>> annee_temperature_minimale(t_moy, annees)\n(12.5, 2016)\n```",
+    "test": "c=\"\"\nif annee_temperature_minimale([14.9, 13.3, 13.1, 12.5, 13.0, 13.6, 13.7], [2013, 2014, 2015, 2016, 2017, 2018, 2019]) == (12.5, 2016):\n    c+=\"1\"\nelse  :\n    c+=\"0\"",
+    "created_at": "2026-03-15T20:36:55.557628+00:00",
+    "ordering": 99
+  },
+  {
+    "id": 41,
+    "titre": "addition",
+    "niveau": 1,
+    "enonce": "Écrire une fonction `add` qui prend en paramètre 2 entiers `a` et `b`. Cette fonction renvoie l'addition de `a` et `b`.  \nExemple :  \n```\n>>> add(3, 5)\n8\n```",
+    "test": "c=\"\"\nif add(3,5) == 8:\n    c+=\"1\"\nelse  :\n    c+=\"0\"",
+    "created_at": "2026-03-15T20:36:55.810346+00:00",
+    "ordering": 100
+  },
+  {
+    "id": 91,
+    "titre": "trouve les mots",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `trouve_mots` qui prend en paramètre une chaîne de caractères texte et un tableau de chaines de caractères mots (type list). La fonction doit renvoyer un tableau contenant les mots du tableau mots qui sont présents dans le texte.  \nExemples :  \n```\n>>> trouve_mots(\"Le chat est sur le tapis\", [\"chat\", \"chien\", \"tapis\"])\n[\"chat\", \"tapis\"]\n>>> trouve_mots(\"un deux trois\", [\"un\", \"quatre\", \"trois\"])\n[\"un\", \"trois\"]\n>>> trouve_mots(\"Bonjour\", [\"bonsoir\"])\n[]\n```",
+    "test": "c = \"\"\nif trouve_mots(\"Le chat est sur le tapis\", [\"chat\", \"chien\", \"tapis\"]) == [\"chat\", \"tapis\"]:\n    c += \"1\"\nelse:\n    c += \"0\"\nif trouve_mots(\"un deux trois\", [\"un\", \"quatre\", \"trois\"]) == [\"un\", \"trois\"]:\n    c += \"1\"\nelse:\n    c += \"0\"\nif trouve_mots(\"Bonjour\", [\"bonsoir\"]) == []:\n    c += \"1\"\nelse:\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:58.946743+00:00",
+    "ordering": 101
+  },
+  {
+    "id": 3,
+    "titre": "est voyelle",
+    "niveau": 1,
+    "enonce": "Écrire une fonction `est_voyelle` qui prend en paramètre une chaîne de caractères `lettre` contenant un seul caractère en minuscule, et qui renvoie `True` si cette lettre est une voyelle (a, e, i, o, u, y) et `False` sinon.  \nExemples :  \n```\n>>> est_voyelle('a')\nTrue\n>>> est_voyelle('b')\nFalse\n>>> est_voyelle('y')\nTrue\n```",
+    "test": "c = \"\"\nif est_voyelle('a') == True:\n    c += \"1\"\nelse:\n    c += \"0\"\nif est_voyelle('b') == False:\n    c += \"1\"\nelse:\n    c += \"0\"\nif est_voyelle('y') == True:\n    c += \"1\"\nelse:\n    c += \"0\"\nif est_voyelle('u') == True:\n    c += '1'\nelse:\n    c += '0'\nif est_voyelle('o') == True:\n    c += \"1\"\nelse :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:53.355727+00:00",
+    "ordering": 102
+  },
+  {
+    "id": 92,
+    "titre": "somme des nombres pairs d'un tableau",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `somme_pairs` qui prend en paramètre un tableau d'entiers `tab` (type list) et qui renvoie la somme des nombres pairs contenus dans ce tableau.  \nSi le tableau est vide, la fonction doit retourner `0`.  \nExemples :  \n```  \n>>> somme_pairs([1, 2, 3, 4, 5, 6])  \n12  \n>>> somme_pairs([1, 3, 5, 7])  \n0  \n>>> somme_pairs([2, 4, 6, 8])  \n20  \n>>> somme_pairs([])  \n0  \n```",
+    "test": "c = \"\"  \nif somme_pairs([1, 2, 3, 4, 5, 6]) == 12:\n    c+=\"1\"  \nelse:\n    c+=\"0\"  \nif somme_pairs([1, 3, 5, 7]) == 0:\n    c+=\"1\"  \nelse:\n    c+=\"0\"  \nif somme_pairs([2, 4, 6, 8]) == 20:\n    c+=\"1\"  \nelse:\n    c+=\"0\"  \nif somme_pairs([]) == 0:\n    c+=\"1\"  \nelse:\n    c+=\"0\"\nif somme_pairs([1, 2, 3, 4]) == 6:\n    c+=\"1\"\nelse :\n    c+=\"0\"",
+    "created_at": "2026-03-15T20:36:59.00866+00:00",
+    "ordering": 103
+  },
+  {
+    "id": 96,
+    "titre": "somme pairs",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `somme_pairs` qui prend en paramètre un tableau d'entiers `tab` et qui renvoie la somme de tous les nombres pairs présents dans le tableau. Si le tableau ne contient aucun nombre pair ou est vide, la fonction renvoie 0.  \nExemples :  \n```\n>>> somme_pairs([1, 2, 3, 4])\n6\n>>> somme_pairs([1, 3, 5])\n0\n>>> somme_pairs([])\n0\n```",
+    "test": "c = \"\"\nif somme_pairs([1, 2, 3, 4]) == 6:\n    c += \"1\"\nelse:\n    c += \"0\"\nif somme_pairs([1, 3, 5]) == 0:\n    c += \"1\"\nelse:\n    c += \"0\"\nif somme_pairs([]) == 0:\n    c += \"1\"\nelse:\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:59.268913+00:00",
+    "ordering": 104
+  },
+  {
+    "id": 4,
+    "titre": "maximum tableau",
+    "niveau": 2,
+    "enonce": "Écrire la fonction `maximum_tableau`, prenant en paramètre un tableau non vide de nombres `tab` (de type list) et renvoyant le plus grand élément de ce tableau.    \nIl est interdit d'utiliser la fonction Python `max`  \nExemples :  \n```\n>>> maximum_tableau([98, 12, 104, 23, 131, 9])\n131\n>>> maximum_tableau([-27, 24, -3, 15])\n24\n```",
+    "test": "c = \"\"\nif maximum_tableau([98, 12, 104, 23, 131, 9]) == 131:\n    c += \"1\"\nelse :\n    c += \"0\"\nif maximum_tableau([-27, 24, -3, 15]) == 24:\n    c += \"1\"\nelse :\n    c += \"0\"\nif maximum_tableau([-27, -24, -3, -15]) == -3:\n    c += \"1\"\nelse :\n    c += \"0\"\nif maximum_tableau([-27, -24, -3, 15]) == 15:\n    c += \"1\"\nelse :\n    c += \"0\"\nif maximum_tableau([10, 20, 5, 25, 15]) == 25:\n    c += '1'\nelse:\n    c += '0'\nif maximum_tableau([10, 50, 20, 30]) == 50:\n    c += \"1\"\nelse :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:53.438512+00:00",
+    "ordering": 105
+  },
+  {
+    "id": 33,
+    "titre": "fusion tableaux",
+    "niveau": 3,
+    "enonce": "Programmer la fonction `fusion` prenant en paramètres deux tableaux non vides `tab1` et `tab2` (type list) d’entiers, chacun dans l’ordre croissant, et renvoyant un tableau trié dans l’ordre croissant et contenant l’ensemble des valeurs de `tab1` et `tab2`.  \nExemples :  \n```\n>>> fusion([3, 5], [2, 5])\n[2, 3, 5, 5]\n>>> fusion([-2, 4], [-3, 5, 10])\n[-3, -2, 4, 5, 10]\n>>> fusion([4], [2, 6])\n[2, 4, 6]\n>>> fusion([], [])\n[]\n>>> fusion([1, 2, 3], [])\n[1, 2, 3]\n```",
+    "test": "c=\"\"\nif fusion([3, 5], [2, 5]) == [2, 3, 5, 5]:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif fusion([-2, 4], [-3, 5, 10]) == [-3, -2, 4, 5, 10]:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif fusion([4], [2, 6]) == [2, 4, 6]:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif fusion([], []) == []:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif fusion([1, 2, 3], []) == [1, 2, 3]:\n    c+=\"1\"\nelse  :\n    c+=\"0\"\nif fusion([1], [2]) == [1, 2]:\n    c+=\"1\"\nelse :\n    c+=\"0\"",
+    "created_at": "2026-03-15T20:36:55.297077+00:00",
+    "ordering": 106
+  },
+  {
+    "id": 84,
+    "titre": "est un nombre premier",
+    "niveau": 3,
+    "enonce": "Écrire une fonction `est_premier` qui prend en paramètre un entier positif `n`. La fonction doit renvoyer `True` si `n` est un nombre premier et `False` sinon.  \nUn nombre premier est un nombre qui a exactement deux diviseurs distincts : 1 et lui-même.  \nPar convention, 0 et 1 ne sont pas premiers.  \nExemples :  \n```\n>>> est_premier(2)\nTrue\n>>> est_premier(10)\nFalse\n>>> est_premier(11)\nTrue\n```",
+    "test": "c = \"\"\nif est_premier(2):\n c += \"1\"\nelse:\n c += \"0\"\nif not est_premier(10):\n c += \"1\"\nelse:\n c += \"0\"\nif est_premier(11):\n c += \"1\"\nelse:\n c += \"0\"",
+    "created_at": "2026-03-15T20:36:58.504467+00:00",
+    "ordering": 107
+  },
+  {
+    "id": 79,
+    "titre": "conversion binaire vers décimal",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `binaire_decimal` qui prend en paramètre une chaîne de caractères représentant un nombre binaire et qui renvoie sa valeur en base 10 (en décimal).  \nExemples :  \n```\n>>> binaire_decimal(\"101\")\n5\n>>> binaire_decimal(\"1111\")\n15\n>>> binaire_decimal(\"0\")\n0\n```",
+    "test": "c = \"\"\nif binaire_decimal(\"101\") == 5:\n c += \"1\"\nelse:\n c += \"0\"\nif binaire_decimal(\"1111\") == 15:\n c += \"1\"\nelse:\n c += \"0\"\nif binaire_decimal(\"0\") == 0:\n c += \"1\"\nelse:\n c += \"0\"\nif binaire_decimal(\"100\") == 4:\n c += \"1\"\nelse:\n c += \"0\"",
+    "created_at": "2026-03-15T20:36:58.154649+00:00",
+    "ordering": 108
+  },
+  {
+    "id": 80,
+    "titre": "trouve doublon",
+    "niveau": 2,
+    "enonce": "Écrire une fonction `trouve_doublon` qui prend en paramètre un tableau `tab` (type list) et qui renvoie `True` si le tableau contient au moins un doublon et `False` sinon.  \nExemples :  \n```\n>>> trouve_doublon([1, 2, 3, 4, 5])\nFalse\n>>> trouve_doublon([1, 2, 3, 4, 1])\nTrue\n>>> trouve_doublon([])\nFalse\n```",
+    "test": "c = \"\"\nif not trouve_doublon([1, 2, 3, 4, 5]):\n c += \"1\"\nelse:\n c += \"0\"\nif trouve_doublon([1, 2, 3, 4, 1]):\n c += \"1\"\nelse:\n c += \"0\"\nif not trouve_doublon([]):\n c += \"1\"\nelse:\n c += \"0\"",
+    "created_at": "2026-03-15T20:36:58.212319+00:00",
+    "ordering": 109
+  },
+  {
+    "id": 85,
+    "titre": "(T) somme des éléments d'un tableau",
+    "niveau": 3,
+    "enonce": "Écrire une fonction récursive `somme_recursive` qui prend en paramètre un tableau de nombres `tab` (type list) et qui renvoie la somme de tous les éléments du tableau.  \nExemples :  \n```\n>>> somme_recursive([1, 2, 3, 4, 5])\n15\n>>> somme_recursive([])\n0\n>>> somme_recursive([10])\n10\n```",
+    "test": "c = \"\"\nif somme_recursive([1, 2, 3, 4, 5]) == 15:\n c += \"1\"\nelse:\n c += \"0\"\nif somme_recursive([]) == 0:\n c += \"1\"\nelse:\n c += \"0\"\nif somme_recursive([10]) == 10:\n c += \"1\"\nelse:\n c += \"0\"\n\nif somme_recursive([1, 2, 3, 4]) == 10:\n    c += \"1\"\nelse :\n    c += \"0\"",
+    "created_at": "2026-03-15T20:36:58.576347+00:00",
+    "ordering": 110
+  }
+]
