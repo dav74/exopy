@@ -1,0 +1,29 @@
+# docker-compose.prod.yml
+# Déploiement production avec HTTPS automatique (Caddy + Let's Encrypt)
+#
+# Usage :
+#   1. Configurez DOMAIN et LETSENCRYPT_EMAIL dans votre .env
+#   2. Lancez : docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Dans votre .env, mettez FRONTEND_PORT=127.0.0.1:8080:80
+# pour que le frontend ne soit pas exposé directement au public.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    networks:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    command: caddy reverse-proxy --from ${DOMAIN:?DOMAIN requis} --to frontend:80
+    depends_on:
+      - frontend
+
+volumes:
+  caddy_data:
+  caddy_config:

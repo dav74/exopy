@@ -17,7 +17,7 @@ class RequestExercise(BaseModel):
 
 class LogEvent(BaseModel):
     exercise_id: int
-    status: str # 'success', 'failure', 'ai_request'
+    status: str
     error_type: str | None = None
     session_id: str
     duration: int | None = None
@@ -43,8 +43,6 @@ class ExerciseAIRequest(BaseModel):
     difficulty: str
     existing_titles: list[str]
 
-# --- Metrics Models ---
-
 class ProgressionMetrics(BaseModel):
     total_completion: int
     total_exercises: int
@@ -67,7 +65,7 @@ class QualiteMetrics(BaseModel):
 
 class EngagementMetrics(BaseModel):
     streak: int
-    weekly_practice_time: int # in minutes
+    weekly_practice_time: int
 
 class StudentMetrics(BaseModel):
     progression: ProgressionMetrics
@@ -75,12 +73,12 @@ class StudentMetrics(BaseModel):
     qualite: QualiteMetrics
     engagement: EngagementMetrics
 
-# --- Admin User Management ---
-
 class UserInfo(BaseModel):
     username: str
     nom: str | None = None
     prenom: str | None = None
+    ai_enabled: bool = False
+    role: str = "student"
 
 class UserCreate(BaseModel):
     username: str
@@ -95,3 +93,25 @@ class UserUpdate(BaseModel):
 class UserPasswordReset(BaseModel):
     username: str
     new_password: str
+
+class AdminCreate(BaseModel):
+    username: str
+    password: str
+
+class AdminPasswordReset(BaseModel):
+    admin_id: int
+    new_password: str
+
+class AdminApiKeyUpdate(BaseModel):
+    openrouter_api_key: str
+
+class AdminPasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
+class AdminOut(BaseModel):
+    id: int
+    username: str
+    api_key_set: bool
+    is_super: bool
+    nb_students: int = 0

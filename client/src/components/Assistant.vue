@@ -81,7 +81,7 @@ const safeRenderedMsg = computed(() => {
       
       <!-- Placeholder when Assistant is disabled but panel visible -->
       <div v-if="!props.active && !props.isLoading" :class="['absolute inset-0 flex items-center justify-center text-sm italic py-8 text-center px-6 leading-relaxed select-none', isDarkMode ? 'text-zinc-500' : 'text-zinc-400']">
-        <span v-if="props.disabled">L'assistant n'est pas disponible en mode invité.</span>
+        <span v-if="props.disabled">L'assistant IA n'est pas disponible pour ce compte.</span>
         <span v-else class="max-w-[200px]">Cliquez sur l'icône pour m'activer et obtenir de l'aide !</span>
       </div>
     </div>

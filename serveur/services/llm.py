@@ -11,12 +11,13 @@ from langchain_openai import ChatOpenAI
 from core.database import get_db
 import psycopg2.extras
 
-llm = ChatOpenAI(
-    model="deepseek/deepseek-v4-flash",
-    temperature=0.7,
-    base_url="https://openrouter.ai/api/v1",
-    api_key=os.getenv("OPENROUTER_API_KEY"),
-)
+def _create_llm(api_key: str):
+    return ChatOpenAI(
+        model="deepseek/deepseek-v4-flash",
+        temperature=0.7,
+        base_url="https://openrouter.ai/api/v1",
+        api_key=api_key,
+    )
 
 prompt_aide = PromptTemplate.from_template(
 """
@@ -98,14 +99,14 @@ Tu dois répondre UNIQUEMENT au format JSON avec les clés suivantes :
 Réponds uniquement avec le JSON, sans explications avant ou après.
 """)
 
-def generate_new_exercise(difficulty: str, existing_titles: list[str]):
+def generate_new_exercise(difficulty: str, existing_titles: list[str], api_key: str):
+    llm = _create_llm(api_key)
     chain = prompt_generate_exercise | llm | StrOutputParser()
     response = chain.invoke({
         "difficulty": difficulty,
         "existing_titles": ", ".join(existing_titles)
     })
     
-    # Tentative de nettoyage si l'IA ajoute des balises markdown de code
     import json
     import re
     
@@ -113,14 +114,16 @@ def generate_new_exercise(difficulty: str, existing_titles: list[str]):
     try:
         return json.loads(cleaned_res)
     except Exception as e:
-        # Fallback ou retry minimal
         return {"error": "Failed to parse AI response", "raw": response}
 
-def get_descr_exo():
+def get_descr_exo(admin_id: int):
     try:
         with get_db() as conn:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                cur.execute("SELECT id, titre, mots_cle, niveau FROM exercises ORDER BY ordering, id")
+                cur.execute(
+                    "SELECT id, titre, mots_cle, niveau FROM exercises WHERE admin_id = %s ORDER BY ordering, id",
+                    (admin_id,)
+                )
                 rows = cur.fetchall()
         descr_exo = ""
         for row in rows:
@@ -143,6 +146,8 @@ class AgentState(TypedDict):
     messages: Annotated[list[AnyMessage], add_messages]
     res_test : str
     is_assistant : bool
+    api_key : str
+    admin_id : int
 
 def routeur(state : AgentState):
     if state['res_test'] == "1" or state['res_test'] == "0":
@@ -151,20 +156,20 @@ def routeur(state : AgentState):
         return "bilan"
 
 def aide(state : AgentState):
+    if not state['is_assistant']:
+        return {"messages": [AIMessage(content="")]}
+    llm = _create_llm(state['api_key'])
     llm_aide = prompt_aide | llm | StrOutputParser()
-    if state['is_assistant']:
-        response = llm_aide.invoke({'enonce': state['enonce'], 'code' : state['messages'][-1].content, 'historique' : history(state['messages'])})
-    else :
-        response = ""
+    response = llm_aide.invoke({'enonce': state['enonce'], 'code' : state['messages'][-1].content, 'historique' : history(state['messages'])})
     return {"messages": [AIMessage(content=response)]}
 
 def bilan(state : AgentState):
+    llm = _create_llm(state['api_key'])
     llm_bilan = prompt_bilan | llm | StrOutputParser()
-    descr_exo = get_descr_exo()
+    descr_exo = get_descr_exo(state['admin_id'])
     response = llm_bilan.invoke({'enonce': state['enonce'], 'historique' : history(state['messages']), 'mot_cle': descr_exo})
     return {"messages": [AIMessage(content=response)]}
 
-# Langgraph instantiation
 memory = MemorySaver()
 workflow = StateGraph(AgentState)
 

@@ -18,7 +18,7 @@ const authStore = useAuthStore();
 const exerciseStore = useExerciseStore();
 const themeStore = useThemeStore();
 
-const { id_user, userFullInfo, assistantIsOn, isAdmin } = storeToRefs(authStore);
+const { id_user, userFullInfo, assistantIsOn, isAdmin, aiEnabled } = storeToRefs(authStore);
 const { selectedItemId, exercise, code, resTest, testCode, visibleTests, errorCode } = storeToRefs(exerciseStore);
 const { isDarkMode } = storeToRefs(themeStore);
 const { toggleTheme } = themeStore;
@@ -170,11 +170,21 @@ const callAssistant = async () => {
     isAssistantLoading.value = false;
     return;
   }
+
+  if (!aiEnabled.value && !isAdmin.value) {
+    if (resTest.value == "2") {
+      bilanAI.value = "";
+      msgAI.value = "Vous pouvez choisir un autre exercice";
+    } else {
+      msgAI.value = "L'assistant IA est désactivé par votre administrateur.";
+    }
+    isAssistantLoading.value = false;
+    return;
+  }
   
   msgAI.value = "";
   bilanAI.value = "";
 
-  // Si l'assistant est désactivé, on ne lance aucune requête IA
   if (!assistantIsOn.value) {
     isAssistantLoading.value = false;
     return;
@@ -201,6 +211,15 @@ const callAssistant = async () => {
     if (!callAI.ok) {
       if (callAI.status === 401) {
         authStore.logout();
+      } else if (callAI.status === 403) {
+        if (resTest.value == "2") {
+          bilanAI.value = "";
+          msgAI.value = "Vous pouvez choisir un autre exercice";
+        } else {
+          msgAI.value = "L'assistant IA est désactivé par votre administrateur.";
+        }
+        isAssistantLoading.value = false;
+        return;
       }
     }
     const data = await callAI.json();
@@ -366,7 +385,7 @@ const assitant = (v) => {
             class="flex-[1] min-h-0"
             :msg="msgAI"
             :is-loading="isAssistantLoading"
-            :disabled="id_user === 'Invité'"
+            :disabled="id_user === 'Invité' || (!isAdmin && !aiEnabled)"
             :active="assistantIsOn"
             @isAssistant="assitant"
           />

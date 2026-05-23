@@ -1,12 +1,21 @@
 -- Schéma de base de données Exopy
 -- Ce fichier est exécuté automatiquement au premier démarrage du conteneur PostgreSQL
 
+CREATE TABLE IF NOT EXISTS admins (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    openrouter_api_key VARCHAR(512) DEFAULT NULL,
+    is_super BOOLEAN DEFAULT FALSE
+);
+
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     nom VARCHAR(255) NOT NULL DEFAULT '',
-    prenom VARCHAR(255) NOT NULL DEFAULT ''
+    prenom VARCHAR(255) NOT NULL DEFAULT '',
+    admin_id INTEGER NOT NULL REFERENCES admins(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS exercises (
@@ -16,7 +25,8 @@ CREATE TABLE IF NOT EXISTS exercises (
     enonce TEXT NOT NULL,
     test TEXT NOT NULL,
     mots_cle TEXT NOT NULL DEFAULT '',
-    ordering INTEGER NOT NULL DEFAULT 0
+    ordering INTEGER NOT NULL DEFAULT 0,
+    admin_id INTEGER NOT NULL REFERENCES admins(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS user_progress (
@@ -33,3 +43,5 @@ CREATE TABLE IF NOT EXISTS user_progress (
 CREATE INDEX IF NOT EXISTS idx_user_progress_user_id ON user_progress(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_progress_exercise_id ON user_progress(exercise_id);
 CREATE INDEX IF NOT EXISTS idx_exercises_ordering ON exercises(ordering);
+CREATE INDEX IF NOT EXISTS idx_users_admin_id ON users(admin_id);
+CREATE INDEX IF NOT EXISTS idx_exercises_admin_id ON exercises(admin_id);

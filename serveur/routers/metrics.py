@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from core.security import get_current_user
+from core.security import get_current_user, AuthUser
 from models.schemas import StudentMetrics, LogEvent
 from core.database import get_db
 import psycopg2.extras
@@ -7,7 +7,24 @@ import psycopg2.extras
 router = APIRouter(tags=["metrics"])
 
 @router.get('/api/metrics/{student_id}', response_model=StudentMetrics)
-def get_student_metrics(student_id: str, current_user: str = Depends(get_current_user)):
+def get_student_metrics(student_id: str, current_user: AuthUser = Depends(get_current_user)):
+    admin_id = current_user.admin_id
+
+    if current_user.role == "student":
+        if current_user.username != student_id:
+            raise HTTPException(status_code=403, detail="Accès non autorisé.")
+    elif current_user.role in ("admin", "superadmin"):
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT 1 FROM users WHERE username = %s AND admin_id = %s",
+                    (student_id, admin_id)
+                )
+                if not cur.fetchone():
+                    raise HTTPException(status_code=403, detail="Élève non trouvé dans votre liste.")
+    else:
+        raise HTTPException(status_code=403, detail="Accès non autorisé.")
+
     try:
         with get_db() as conn:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
@@ -17,10 +34,12 @@ def get_student_metrics(student_id: str, current_user: str = Depends(get_current
                 )
                 logs = [dict(row) for row in cur.fetchall()]
 
-                cur.execute("SELECT id, niveau FROM exercises")
+                cur.execute(
+                    "SELECT id, niveau FROM exercises WHERE admin_id = %s",
+                    (admin_id,)
+                )
                 exercises_list = [dict(row) for row in cur.fetchall()]
 
-        # 1. Progression
         success_ex_ids = {log['exercise_id'] for log in logs if log['status'] == 'success'}
         total_completion = len(success_ex_ids)
 
@@ -46,7 +65,6 @@ def get_student_metrics(student_id: str, current_user: str = Depends(get_current
                 else:
                     xp += base_xp
 
-        # 2. Autonomie
         if total_completion > 0:
             success_no_ai = len(success_ex_ids - ai_req_ex_ids)
             success_rate_no_ai = (success_no_ai / total_completion) * 100
@@ -70,7 +88,6 @@ def get_student_metrics(student_id: str, current_user: str = Depends(get_current
             if has_ai and has_success:
                 badges_declic += 1
 
-        # 3. Qualité
         total_attempts = len([log for log in logs if log['status'] in ['success', 'failure']])
 
         first_tries = 0
@@ -93,7 +110,6 @@ def get_student_metrics(student_id: str, current_user: str = Depends(get_current
             key=lambda x: x['count'], reverse=True
         )[:3]
 
-        # 4. Engagement
         if logs:
             from datetime import datetime, timedelta, timezone
             now = datetime.now(timezone.utc)
@@ -154,19 +170,21 @@ def get_student_metrics(student_id: str, current_user: str = Depends(get_current
                 "weekly_practice_time": weekly_practice_time
             }
         }
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Error calculating metrics: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post('/api/metrics/log')
-def log_metric_event(event: LogEvent, current_user: str = Depends(get_current_user)):
+def log_metric_event(event: LogEvent, current_user: AuthUser = Depends(get_current_user)):
     try:
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """INSERT INTO user_progress (user_id, exercise_id, status, error_type, session_id, duration)
                        VALUES (%s, %s, %s, %s, %s, %s)""",
-                    (current_user, event.exercise_id, event.status, event.error_type, event.session_id, event.duration)
+                    (current_user.username, event.exercise_id, event.status, event.error_type, event.session_id, event.duration)
                 )
         return {"success": True}
     except Exception as e:
