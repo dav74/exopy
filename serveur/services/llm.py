@@ -11,13 +11,12 @@ from langchain_openai import ChatOpenAI
 from core.database import get_db
 import psycopg2.extras
 
-def _create_llm(api_key: str):
-    return ChatOpenAI(
-        model="deepseek/deepseek-v4-flash",
-        temperature=0.7,
-        base_url="https://openrouter.ai/api/v1",
-        api_key=api_key,
-    )
+llm = ChatOpenAI(
+    model="deepseek/deepseek-v4-flash",
+    temperature=0.7,
+    base_url="https://openrouter.ai/api/v1",
+    api_key=os.getenv("OPENROUTER_API_KEY"),
+)
 
 prompt_aide = PromptTemplate.from_template(
 """
@@ -99,8 +98,7 @@ Tu dois répondre UNIQUEMENT au format JSON avec les clés suivantes :
 Réponds uniquement avec le JSON, sans explications avant ou après.
 """)
 
-def generate_new_exercise(difficulty: str, existing_titles: list[str], api_key: str):
-    llm = _create_llm(api_key)
+def generate_new_exercise(difficulty: str, existing_titles: list[str]):
     chain = prompt_generate_exercise | llm | StrOutputParser()
     response = chain.invoke({
         "difficulty": difficulty,
@@ -146,7 +144,6 @@ class AgentState(TypedDict):
     messages: Annotated[list[AnyMessage], add_messages]
     res_test : str
     is_assistant : bool
-    api_key : str
     admin_id : int
 
 def routeur(state : AgentState):
@@ -158,13 +155,11 @@ def routeur(state : AgentState):
 def aide(state : AgentState):
     if not state['is_assistant']:
         return {"messages": [AIMessage(content="")]}
-    llm = _create_llm(state['api_key'])
     llm_aide = prompt_aide | llm | StrOutputParser()
     response = llm_aide.invoke({'enonce': state['enonce'], 'code' : state['messages'][-1].content, 'historique' : history(state['messages'])})
     return {"messages": [AIMessage(content=response)]}
 
 def bilan(state : AgentState):
-    llm = _create_llm(state['api_key'])
     llm_bilan = prompt_bilan | llm | StrOutputParser()
     descr_exo = get_descr_exo(state['admin_id'])
     response = llm_bilan.invoke({'enonce': state['enonce'], 'historique' : history(state['messages']), 'mot_cle': descr_exo})

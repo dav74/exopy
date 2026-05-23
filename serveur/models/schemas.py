@@ -102,9 +102,6 @@ class AdminPasswordReset(BaseModel):
     admin_id: int
     new_password: str
 
-class AdminApiKeyUpdate(BaseModel):
-    openrouter_api_key: str
-
 class AdminPasswordChange(BaseModel):
     current_password: str
     new_password: str
@@ -112,6 +109,9 @@ class AdminPasswordChange(BaseModel):
 class AdminOut(BaseModel):
     id: int
     username: str
-    api_key_set: bool
     is_super: bool
     nb_students: int = 0
+    nb_exercises: int = 0
+    nb_ai_requests: int = 0
+    nb_total_requests: int = 0
+    last_activity: str | None = None

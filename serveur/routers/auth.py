@@ -76,20 +76,14 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 
 @router.get("/me", response_model=UserInfo)
 async def get_me(current_user: AuthUser = Depends(get_current_user)):
+    ai_enabled = bool(os.getenv("OPENROUTER_API_KEY"))
+
     if current_user.role in ("admin", "superadmin"):
-        try:
-            with get_db() as conn:
-                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                    cur.execute("SELECT openrouter_api_key IS NOT NULL as ai_enabled FROM admins WHERE id = %s", (current_user.admin_id,))
-                    row = cur.fetchone()
-                    api_enabled = row['ai_enabled'] if row else False
-        except Exception:
-            api_enabled = True
         return {
             "username": current_user.username,
             "nom": "",
             "prenom": "",
-            "ai_enabled": api_enabled,
+            "ai_enabled": ai_enabled,
             "role": current_user.role,
         }
 
@@ -97,17 +91,12 @@ async def get_me(current_user: AuthUser = Depends(get_current_user)):
         with get_db() as conn:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
                 cur.execute(
-                    """SELECT u.username, u.nom, u.prenom,
-                       a.openrouter_api_key IS NOT NULL as ai_enabled
-                       FROM users u JOIN admins a ON u.admin_id = a.id
-                       WHERE u.username = %s""",
+                    "SELECT username, nom, prenom FROM users WHERE username = %s",
                     (current_user.username,)
                 )
                 row = cur.fetchone()
                 if not row:
                     return {"username": current_user.username, "nom": "", "prenom": "", "ai_enabled": False, "role": "student"}
-                result = dict(row)
-                result["role"] = "student"
-                return result
+                return dict(row) | {"ai_enabled": ai_enabled, "role": "student"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

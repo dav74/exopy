@@ -41,12 +41,9 @@ const isEditing = ref(false);
 const showForm = ref(false);
 const formData = ref({ id: null, titre: "", niveau: "1", enonce: "", test: "" });
 
-const apiKeySet = ref(false);
-const apiKeyValue = ref("");
-const isSavingApiKey = ref(false);
-const passwordForm = ref({ current: "", new: "", confirm: "" });
 const isChangingPassword = ref(false);
 const passwordError = ref("");
+const passwordForm = ref({ current: "", new: "", confirm: "" });
 
 const admins = ref([]);
 const isAdminsLoading = ref(false);
@@ -58,6 +55,12 @@ const safeEnoncePreview = computed(() => {
   if (!formData.value.enonce) return "";
   return DOMPurify.sanitize(markdown.render(formData.value.enonce));
 });
+
+const formatDate = (isoStr) => {
+  if (!isoStr) return "—";
+  const d = new Date(isoStr);
+  return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+};
 
 const loadExercises = async () => {
   isLoading.value = true;
@@ -93,21 +96,6 @@ const loadUsers = async () => {
   }
 };
 
-const loadProfile = async () => {
-  try {
-    const token = localStorage.getItem("access_token");
-    const res = await fetch(`${API_URL}/admin/profile`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    if (res.ok) {
-      const data = await res.json();
-      apiKeySet.value = data.api_key_set;
-    }
-  } catch (err) {
-    console.error(err.message);
-  }
-};
-
 const loadAdmins = async () => {
   if (!isSuperAdmin.value) return;
   isAdminsLoading.value = true;
@@ -123,46 +111,6 @@ const loadAdmins = async () => {
     console.error(err.message);
   } finally {
     isAdminsLoading.value = false;
-  }
-};
-
-const saveApiKey = async () => {
-  isSavingApiKey.value = true;
-  try {
-    const token = localStorage.getItem("access_token");
-    const res = await fetch(`${API_URL}/admin/profile/api-key`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ openrouter_api_key: apiKeyValue.value })
-    });
-    if (!res.ok) throw new Error("Erreur lors de la sauvegarde");
-    apiKeySet.value = !!apiKeyValue.value.trim();
-    apiKeyValue.value = "";
-    alert("Clé API mise à jour avec succès !");
-  } catch (err) {
-    alert(err.message);
-  } finally {
-    isSavingApiKey.value = false;
-  }
-};
-
-const removeApiKey = async () => {
-  if (!confirm("Êtes-vous sûr de vouloir supprimer votre clé API ? L'assistant IA sera désactivé pour tous vos élèves.")) return;
-  isSavingApiKey.value = true;
-  try {
-    const token = localStorage.getItem("access_token");
-    const res = await fetch(`${API_URL}/admin/profile/api-key`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ openrouter_api_key: "" })
-    });
-    if (!res.ok) throw new Error("Erreur lors de la suppression");
-    apiKeySet.value = false;
-    alert("Clé API supprimée.");
-  } catch (err) {
-    alert(err.message);
-  } finally {
-    isSavingApiKey.value = false;
   }
 };
 
@@ -444,7 +392,6 @@ const resetAdminPassword = async (adminId) => {
 onMounted(() => {
   loadExercises();
   loadUsers();
-  loadProfile();
   if (isSuperAdmin.value) loadAdmins();
 });
 
@@ -946,41 +893,6 @@ function parseExercisesFromText(text) {
             </div>
 
             <div class="bg-white dark:bg-zinc-800 rounded-[2rem] p-8 shadow-xl border border-zinc-100 dark:border-zinc-700">
-              <div class="space-y-6">
-                <div>
-                  <h3 class="text-sm font-black text-zinc-800 dark:text-white uppercase tracking-widest mb-2">Clé API OpenRouter</h3>
-                  <p class="text-xs text-zinc-500 dark:text-zinc-400 mb-4 leading-relaxed">
-                    Cette clé est nécessaire pour l'assistant IA et la génération d'exercices par IA.
-                    Sans clé, vos élèves n'auront pas accès à l'assistant IA ni au bilan IA.
-                    Obtenez une clé sur <a href="https://openrouter.ai" target="_blank" class="text-blue-500 hover:underline">openrouter.ai</a>.
-                  </p>
-
-                  <div v-if="apiKeySet" class="flex items-center gap-3 mb-4 px-4 py-3 bg-emerald-50 dark:bg-emerald-500/5 border border-emerald-200 dark:border-emerald-500/20 rounded-2xl">
-                    <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
-                    <span class="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">Clé API configurée</span>
-                  </div>
-                  <div v-else class="flex items-center gap-3 mb-4 px-4 py-3 bg-red-50 dark:bg-red-500/5 border border-red-200 dark:border-red-500/20 rounded-2xl">
-                    <div class="w-2 h-2 rounded-full bg-red-500"></div>
-                    <span class="text-xs font-bold text-red-700 dark:text-red-400 uppercase tracking-widest">Aucune clé API configurée — Assistant IA désactivé pour vos élèves</span>
-                  </div>
-
-                  <div class="space-y-3">
-                    <label class="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest ml-1">Nouvelle clé API</label>
-                    <input v-model="apiKeyValue" type="password" class="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-4 text-zinc-800 dark:text-white font-mono text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner" placeholder="sk-or-v1-...">
-                  </div>
-                  <div class="flex gap-4 mt-6">
-                    <button @click="saveApiKey" :disabled="isSavingApiKey" class="px-8 py-4 rounded-2xl font-black text-[11px] text-white bg-blue-600 hover:bg-blue-500 transition-all shadow-xl shadow-blue-500/20 uppercase tracking-[0.2em] disabled:opacity-50">
-                      {{ isSavingApiKey ? 'Sauvegarde...' : 'Enregistrer la clé' }}
-                    </button>
-                    <button v-if="apiKeySet" @click="removeApiKey" :disabled="isSavingApiKey" class="px-8 py-4 rounded-2xl font-black text-[10px] text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/5 border border-red-200 dark:border-red-500/20 hover:bg-red-100 dark:hover:bg-red-500/10 transition-all uppercase tracking-widest disabled:opacity-50">
-                      Supprimer la clé
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="bg-white dark:bg-zinc-800 rounded-[2rem] p-8 shadow-xl border border-zinc-100 dark:border-zinc-700">
               <h3 class="text-sm font-black text-zinc-800 dark:text-white uppercase tracking-widest mb-2">Changer le mot de passe</h3>
               <p class="text-xs text-zinc-500 dark:text-zinc-400 mb-6">Modifiez votre mot de passe d'authentification.</p>
 
@@ -1048,24 +960,42 @@ function parseExercisesFromText(text) {
 
             <div v-if="isAdminsLoading" class="flex justify-center py-12"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>
             <div v-else class="space-y-3">
-              <div v-for="adm in admins" :key="adm.id" class="bg-white dark:bg-zinc-800 rounded-2xl p-6 shadow-sm border border-zinc-100 dark:border-zinc-700 flex items-center justify-between group">
-                <div class="flex items-center gap-4">
-                  <div class="w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm shadow-sm" :class="adm.is_super ? 'bg-amber-100 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20' : 'bg-blue-100 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20'">
-                    {{ adm.is_super ? 'SA' : 'A' }}
-                  </div>
-                  <div>
-                    <div class="flex items-center gap-3">
-                      <span class="font-black text-zinc-800 dark:text-white tracking-tight">{{ adm.username }}</span>
-                      <span v-if="adm.is_super" class="text-[9px] font-black text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/5 px-3 py-1 rounded-full border border-amber-200 dark:border-amber-500/20 uppercase tracking-widest">Super-admin</span>
-                      <span v-if="adm.api_key_set" class="text-[9px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/5 px-3 py-1 rounded-full border border-emerald-200 dark:border-emerald-500/20 uppercase tracking-widest">Clé IA configurée</span>
-                      <span v-else-if="!adm.is_super" class="text-[9px] font-black text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/5 px-3 py-1 rounded-full border border-red-200 dark:border-red-500/20 uppercase tracking-widest">Pas de clé IA</span>
+              <div v-for="adm in admins" :key="adm.id" class="bg-white dark:bg-zinc-800 rounded-2xl p-6 shadow-sm border border-zinc-100 dark:border-zinc-700 group">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm shadow-sm" :class="adm.is_super ? 'bg-amber-100 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20' : 'bg-blue-100 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20'">
+                      {{ adm.is_super ? 'SA' : 'A' }}
                     </div>
-                    <span class="text-xs text-zinc-400 dark:text-zinc-500 font-bold">{{ adm.nb_students }} élève{{ adm.nb_students !== 1 ? 's' : '' }}</span>
+                    <div>
+                      <div class="flex items-center gap-3">
+                        <span class="font-black text-zinc-800 dark:text-white tracking-tight">{{ adm.username }}</span>
+                        <span v-if="adm.is_super" class="text-[9px] font-black text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/5 px-3 py-1 rounded-full border border-amber-200 dark:border-amber-500/20 uppercase tracking-widest">Super-admin</span>
+                      </div>
+                      <span class="text-xs text-zinc-400 dark:text-zinc-500 font-bold">{{ adm.nb_students }} élève{{ adm.nb_students !== 1 ? 's' : '' }}</span>
+                    </div>
+                  </div>
+                  <div v-if="!adm.is_super" class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button @click="resetAdminPassword(adm.id)" class="px-4 py-2 text-[10px] font-black text-amber-600 dark:text-amber-500 bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 rounded-xl uppercase tracking-widest hover:bg-amber-100 dark:hover:bg-amber-500/10 transition-all">Reset mdp</button>
+                    <button @click="deleteAdmin(adm.id)" class="px-4 py-2 text-[10px] font-black text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/5 border border-red-200 dark:border-red-500/20 rounded-xl uppercase tracking-widest hover:bg-red-100 dark:hover:bg-red-500/10 transition-all">Supprimer</button>
                   </div>
                 </div>
-                <div v-if="!adm.is_super" class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button @click="resetAdminPassword(adm.id)" class="px-4 py-2 text-[10px] font-black text-amber-600 dark:text-amber-500 bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 rounded-xl uppercase tracking-widest hover:bg-amber-100 dark:hover:bg-amber-500/10 transition-all">Reset mdp</button>
-                  <button @click="deleteAdmin(adm.id)" class="px-4 py-2 text-[10px] font-black text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/5 border border-red-200 dark:border-red-500/20 rounded-xl uppercase tracking-widest hover:bg-red-100 dark:hover:bg-red-500/10 transition-all">Supprimer</button>
+                <div v-if="!adm.is_super" class="mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-700 grid grid-cols-4 gap-4">
+                  <div class="text-center">
+                    <div class="text-lg font-black text-zinc-800 dark:text-white">{{ adm.nb_exercises }}</div>
+                    <div class="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Exercices</div>
+                  </div>
+                  <div class="text-center">
+                    <div class="text-lg font-black text-blue-600 dark:text-blue-400">{{ adm.nb_ai_requests }}</div>
+                    <div class="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Requêtes IA</div>
+                  </div>
+                  <div class="text-center">
+                    <div class="text-lg font-black text-zinc-800 dark:text-white">{{ adm.nb_total_requests }}</div>
+                    <div class="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Total événements</div>
+                  </div>
+                  <div class="text-center">
+                    <div class="text-sm font-black text-zinc-800 dark:text-white">{{ formatDate(adm.last_activity) }}</div>
+                    <div class="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Dernière activité</div>
+                  </div>
                 </div>
               </div>
               <div v-if="admins.length === 0" class="text-center py-12 text-zinc-400 text-sm italic">Aucun admin enregistré.</div>

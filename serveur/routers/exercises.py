@@ -23,16 +23,6 @@ def _get_admin_id_for_user(user: AuthUser) -> int:
         pass
     return None
 
-def _get_admin_api_key(admin_id: int) -> str | None:
-    try:
-        with get_db() as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT openrouter_api_key FROM admins WHERE id = %s", (admin_id,))
-                row = cur.fetchone()
-                return row[0] if row else None
-    except Exception:
-        return None
-
 @router.get('/title')
 def get_title(current_user: AuthUser = Depends(get_current_user)):
     admin_id = _get_admin_id_for_user(current_user)
@@ -109,10 +99,9 @@ def get_exercise(id: int, current_user: AuthUser = Depends(get_current_user)):
 @router.post('/admin/exercises/generate')
 def ai_generate_exercise(payload: ExerciseAIRequest, admin: AuthUser = Depends(get_current_admin)):
     try:
-        api_key = _get_admin_api_key(admin.admin_id)
-        if not api_key:
-            raise HTTPException(status_code=403, detail="Clé API OpenRouter non configurée. Ajoutez votre clé dans l'onglet 'Mon compte'.")
-        result = generate_new_exercise(payload.difficulty, payload.existing_titles, api_key)
+        if not os.getenv("OPENROUTER_API_KEY"):
+            raise HTTPException(status_code=403, detail="Clé API OpenRouter non configurée sur le serveur.")
+        result = generate_new_exercise(payload.difficulty, payload.existing_titles)
         return result
     except HTTPException:
         raise

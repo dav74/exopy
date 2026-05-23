@@ -171,12 +171,12 @@ const callAssistant = async () => {
     return;
   }
 
-  if (!aiEnabled.value && !isAdmin.value) {
+  if (!aiEnabled.value) {
     if (resTest.value == "2") {
       bilanAI.value = "";
       msgAI.value = "Vous pouvez choisir un autre exercice";
     } else {
-      msgAI.value = "L'assistant IA est désactivé par votre administrateur.";
+      msgAI.value = "L'assistant IA n'est pas configuré sur ce serveur.";
     }
     isAssistantLoading.value = false;
     return;
@@ -385,7 +385,7 @@ const assitant = (v) => {
             class="flex-[1] min-h-0"
             :msg="msgAI"
             :is-loading="isAssistantLoading"
-            :disabled="id_user === 'Invité' || (!isAdmin && !aiEnabled)"
+            :disabled="id_user === 'Invité' || !aiEnabled"
             :active="assistantIsOn"
             @isAssistant="assitant"
           />

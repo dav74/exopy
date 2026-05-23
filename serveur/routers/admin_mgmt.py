@@ -3,7 +3,7 @@ from core.database import get_db
 from core.security import get_current_admin, get_current_superadmin, AuthUser
 from models.schemas import (
     UserInfo, UserPasswordReset, UserUpdate, UserCreate,
-    AdminCreate, AdminPasswordReset, AdminApiKeyUpdate, AdminPasswordChange, AdminOut
+    AdminCreate, AdminPasswordReset, AdminPasswordChange, AdminOut
 )
 from passlib.hash import bcrypt
 import psycopg2.extras
@@ -14,35 +14,6 @@ router = APIRouter(prefix="/admin", tags=["admin_mgmt"])
 
 def _hash_password(plain: str) -> str:
     return bcrypt.using(rounds=6).hash(plain)
-
-@router.get("/profile")
-def get_admin_profile(admin: AuthUser = Depends(get_current_admin)):
-    try:
-        with get_db() as conn:
-            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                cur.execute(
-                    "SELECT id, username, openrouter_api_key IS NOT NULL as api_key_set, is_super FROM admins WHERE id = %s",
-                    (admin.admin_id,)
-                )
-                row = cur.fetchone()
-                if not row:
-                    raise HTTPException(status_code=404, detail="Admin non trouvé")
-                return dict(row)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.put("/profile/api-key")
-def update_api_key(payload: AdminApiKeyUpdate, admin: AuthUser = Depends(get_current_admin)):
-    try:
-        api_key = payload.openrouter_api_key.strip() if payload.openrouter_api_key else None
-        with get_db() as conn:
-            with conn.cursor() as cur:
-                cur.execute("UPDATE admins SET openrouter_api_key = %s WHERE id = %s", (api_key, admin.admin_id))
-        return {"success": True, "message": "Clé API mise à jour."}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/profile/password")
 def change_admin_password(payload: AdminPasswordChange, admin: AuthUser = Depends(get_current_admin)):
@@ -227,11 +198,26 @@ def list_admins(superadmin: AuthUser = Depends(get_current_superadmin)):
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
                 cur.execute("""
                     SELECT a.id, a.username, a.is_super,
-                           a.openrouter_api_key IS NOT NULL as api_key_set,
-                           (SELECT COUNT(*) FROM users u WHERE u.admin_id = a.id) as nb_students
+                           (SELECT COUNT(*) FROM users u WHERE u.admin_id = a.id) as nb_students,
+                           (SELECT COUNT(*) FROM exercises e WHERE e.admin_id = a.id) as nb_exercises,
+                           (SELECT COUNT(*) FROM user_progress up
+                            JOIN users u ON up.user_id = u.username
+                            WHERE u.admin_id = a.id AND up.status = 'ai_request') as nb_ai_requests,
+                           (SELECT COUNT(*) FROM user_progress up
+                            JOIN users u ON up.user_id = u.username
+                            WHERE u.admin_id = a.id) as nb_total_requests,
+                           (SELECT MAX(up.created_at) FROM user_progress up
+                            JOIN users u ON up.user_id = u.username
+                            WHERE u.admin_id = a.id) as last_activity
                     FROM admins a ORDER BY a.id
                 """)
-                return [dict(row) for row in cur.fetchall()]
+                rows = cur.fetchall()
+                result = []
+                for row in rows:
+                    d = dict(row)
+                    d['last_activity'] = d['last_activity'].isoformat() if d['last_activity'] else None
+                    result.append(d)
+                return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
