@@ -717,7 +717,7 @@ function parseExercisesFromText(text) {
                 <label class="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Validation Python (Caché)</label>
                 <span class="text-[9px] text-emerald-600 dark:text-emerald-500 font-black uppercase tracking-widest opacity-80 italic">Ajoutez '1' à `c` pour valider</span>
               </div>
-              <textarea v-model="formData.test" class="w-full h-48 bg-zinc-900 border border-zinc-800 rounded-[2rem] p-6 font-mono text-sm text-emerald-400 focus:ring-2 focus:ring-emerald-500/50 outline-none custom-scrollbar shadow-2xl" placeholder="try:&#10;    assert solution() == expected&#10;    c.append('1')&#10;except:&#10;    c.append('0')"></textarea>
+              <textarea v-model="formData.test" class="w-full h-48 bg-zinc-900 border border-zinc-800 rounded-[2rem] p-6 font-mono text-sm text-emerald-400 focus:ring-2 focus:ring-emerald-500/50 outline-none custom-scrollbar shadow-2xl" placeholder="c = []&#10;try:&#10;    assert solution() == expected&#10;    c.append('1')&#10;except:&#10;    c.append('0')"></textarea>
             </div>
             <div class="flex justify-between items-center pt-8 border-t border-zinc-200 dark:border-zinc-800">
               <button @click="generateWithAI" :disabled="isGenerating" class="flex items-center gap-3 px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] text-amber-600 dark:text-amber-500 bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/10 transition-all disabled:opacity-30 shadow-sm">

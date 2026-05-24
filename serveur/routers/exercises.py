@@ -1,3 +1,4 @@
+import os
 from fastapi import APIRouter, Depends, HTTPException, status
 from core.database import get_db
 from core.security import get_current_user, get_current_admin, AuthUser
