@@ -2,7 +2,7 @@
 import { ref, nextTick } from "vue";
 import MarkdownIt from "markdown-it";
 
-const props = defineProps(["msg", "title", "isGuest", "assistantOn"]);
+const props = defineProps(["msg", "title", "assistantOn"]);
 const markdown = new MarkdownIt();
 const emit = defineEmits(["close"]);
 const isVisible = ref(false);
@@ -110,7 +110,7 @@ defineExpose({
               v-html="markdown.render(props.msg)"
             ></div>
             <div
-              v-else-if="!props.isGuest && props.assistantOn"
+              v-else-if="props.assistantOn"
               class="flex flex-col items-center justify-center py-8 gap-6"
             >
               <div class="premium-loader"></div>

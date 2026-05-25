@@ -40,14 +40,6 @@ def check_admin(username: str, password: str):
         print(f"Erreur lors de la vérification du mot de passe admin: {e}")
         return None
 
-@router.post("/login/guest", response_model=Token)
-async def login_guest():
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": "Invité"}, expires_delta=access_token_expires
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
-
 @router.post("/login", response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     admin_data = check_admin(form_data.username, form_data.password)

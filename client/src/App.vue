@@ -52,7 +52,7 @@ const uuidv4 = () => {
 const session_id = uuidv4();
 
 const logEvent = async (status, errorType = null) => {
-  if (id_user.value === "Invité" || !selectedItemId.value) return;
+  if (!selectedItemId.value) return;
   
   let duration = null;
   if (exerciseStartTime.value) {
@@ -113,7 +113,7 @@ const handleMenuItemSelect = async (id) => {
   }
 };
 const fetchProfile = async () => {
-  if (id_user.value === "" || id_user.value === "Invité") return;
+  if (id_user.value === "") return;
   try {
     const token = localStorage.getItem("access_token");
     const response = await fetch(API_URL + "/auth/me", {
@@ -160,17 +160,6 @@ const addTestWithDelay = (test, index) => {
 };
 
 const callAssistant = async () => {
-  if (id_user.value === "Invité") {
-    if (resTest.value == "2") {
-      bilanAI.value = "";
-      msgAI.value = "Vous pouvez choisir un autre exercice";
-    } else {
-      msgAI.value = "L'assistant IA est désactivé pour les invités.";
-    }
-    isAssistantLoading.value = false;
-    return;
-  }
-
   if (!aiEnabled.value) {
     if (resTest.value == "2") {
       bilanAI.value = "";
@@ -385,7 +374,7 @@ const assitant = (v) => {
             class="flex-[1] min-h-0"
             :msg="msgAI"
             :is-loading="isAssistantLoading"
-            :disabled="id_user === 'Invité' || !aiEnabled"
+            :disabled="!aiEnabled"
             :active="assistantIsOn"
             @isAssistant="assitant"
           />
@@ -458,7 +447,6 @@ const assitant = (v) => {
     <SuccessWindow
       ref="successWindowRef"
       :msg="bilanAI"
-      :is-guest="id_user === 'Invité'"
       :assistant-on="assistantIsOn"
     />
 

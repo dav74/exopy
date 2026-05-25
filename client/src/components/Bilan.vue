@@ -38,41 +38,6 @@ const { userFullInfo } = storeToRefs(authStore);
     <!-- Dashboard Content -->
     <div :class="['p-10 overflow-y-auto max-h-[calc(90vh-140px)] custom-scrollbar transition-colors relative', isDarkMode ? 'bg-zinc-900' : 'bg-white']">
       <Dashboard :isDarkMode="isDarkMode" :studentId="props.user_name" />
-      
-      <!-- Guest Restriction Overlay -->
-      <div 
-        v-if="props.user_name === 'Invité'" 
-        class="absolute inset-0 z-10 flex items-center justify-center p-6 md:p-12 animate-in fade-in duration-500"
-      >
-        <div class="absolute inset-0 bg-white/40 dark:bg-zinc-950/40 backdrop-blur-md"></div>
-        
-        <div :class="['relative max-w-md w-full p-8 md:p-10 rounded-[2.5rem] shadow-2xl border text-center transform transition-all hover:scale-[1.02] duration-300', 
-                    isDarkMode ? 'bg-zinc-900/90 border-white/10 shadow-black/50' : 'bg-white/90 border-zinc-200 shadow-zinc-200']">
-          
-          <div class="mb-8 relative">
-            <div class="absolute inset-0 bg-blue-500/20 rounded-full animate-pulse blur-xl"></div>
-            <div :class="['relative w-20 h-20 mx-auto rounded-3xl flex items-center justify-center text-4xl shadow-lg', 
-                       isDarkMode ? 'bg-zinc-800 text-blue-400' : 'bg-blue-50 text-blue-600']">
-              🔒
-            </div>
-          </div>
-
-          <h3 :class="['text-2xl font-black mb-4 tracking-tighter italic', isDarkMode ? 'text-white' : 'text-zinc-900']">
-            Dashboard limité
-          </h3>
-          
-          <p :class="['text-sm leading-relaxed mb-8', isDarkMode ? 'text-zinc-400' : 'text-zinc-500']">
-            Le dashboard est réservé aux élèves inscrits. Connectez-vous avec votre compte pour suivre votre progression, gagner de l'XP et consulter vos statistiques d'apprentissage.
-          </p>
-
-          <button 
-            @click="authStore.logout"
-            class="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-blue-500/25 transition-all active:scale-95"
-          >
-            Se connecter
-          </button>
-        </div>
-      </div>
     </div>
   </div>
 </template>

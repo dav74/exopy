@@ -39,27 +39,7 @@ async function handleLogin() {
   }
 }
 
-async function handleGuestLogin() {
-  isLoading.value = true;
-  try {
-    const response = await fetch(`${API_URL}/auth/login/guest`, {
-      method: "POST",
-    });
 
-    if (response.ok) {
-      const data = await response.json();
-      localStorage.setItem("access_token", data.access_token);
-      localStorage.setItem("username", "Invité");
-      emit("idCorrect", "Invité");
-    } else {
-      console.error("Erreur lors de la connexion invité");
-    }
-  } catch (err) {
-    console.error("Erreur réseau lors de la connexion invité:", err);
-  } finally {
-    isLoading.value = false;
-  }
-}
 </script>
 <template>
   <div class="fixed inset-0 flex items-center justify-center overflow-hidden">
@@ -135,20 +115,7 @@ async function handleGuestLogin() {
             </template>
             <span v-else>Se connecter</span>
           </button>
-          
-          <div class="relative flex items-center py-2">
-            <div class="flex-grow border-t border-white/10"></div>
-            <span class="flex-shrink mx-4 text-white/20 text-[10px] font-black uppercase tracking-[0.3em]">ou</span>
-            <div class="flex-grow border-t border-white/10"></div>
-          </div>
-          
-          <button
-            @click.prevent="handleGuestLogin"
-            :disabled="isLoading"
-            class="w-full bg-white/5 text-white/80 py-4 rounded-2xl font-bold text-[10px] uppercase tracking-[0.2em] border border-white/10 hover:bg-white/10 hover:text-white transition-all shadow-lg"
-          >
-            Continuer sans compte
-          </button>
+
         </form>
       </div>
     </div>

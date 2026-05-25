@@ -630,10 +630,10 @@ function parseExercisesFromText(text) {
             </button>
           </div>
           <div class="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800/50 bg-white/50 dark:bg-transparent">
-            <input type="file" ref="fileInput" accept=".txt" class="hidden" @change="handleFileUpload" />
+            <input type="file" ref="fileInput" accept=".json" class="hidden" @change="handleFileUpload" />
             <button @click="triggerFileInput" class="w-full flex items-center justify-center gap-2 py-3 px-4 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 rounded-xl font-black transition-all border border-zinc-200 dark:border-zinc-700 text-[10px] text-center uppercase tracking-widest shadow-sm">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1 inline" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg>
-              Importer (.json, .txt)
+              Importer (.json)
             </button>
             <button @click="exportExercises" class="w-full mt-2 flex items-center justify-center gap-2 py-3 px-4 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 rounded-xl font-black transition-all border border-zinc-200 dark:border-zinc-700 text-[10px] text-center uppercase tracking-widest shadow-sm">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1 inline" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM10 3a1 1 0 011 1v8.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 111.414-1.414L9 12.586V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
