@@ -105,7 +105,7 @@ defineExpose({
 
           <div class="overflow-y-auto max-h-[40vh] custom-scrollbar mb-10 px-4">
             <div
-              class="text-zinc-700 dark:text-zinc-100 text-xl leading-relaxed text-center font-medium"
+              class="text-zinc-700 dark:text-zinc-100 text-xl leading-relaxed text-justify font-medium"
               v-if="props.msg"
               v-html="markdown.render(props.msg)"
             ></div>

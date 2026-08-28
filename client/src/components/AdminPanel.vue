@@ -4,23 +4,47 @@ import { API_URL } from "../config.js";
 import MarkdownIt from "markdown-it";
 import DOMPurify from "dompurify";
 import { useThemeStore } from "../stores/themeStore";
-import { useAuthStore } from "../stores/authStore";
 import { storeToRefs } from "pinia";
 
 const themeStore = useThemeStore();
-const authStore = useAuthStore();
 const { isDarkMode } = storeToRefs(themeStore);
-const { isSuperAdmin } = storeToRefs(authStore);
 const Dashboard = defineAsyncComponent(() => import("./Dashboard.vue"));
+const ClassDashboard = defineAsyncComponent(() => import("./ClassDashboard.vue"));
+const ExercisesHelpModal = defineAsyncComponent(() => import("./ExercisesHelpModal.vue"));
+const UsersHelpModal = defineAsyncComponent(() => import("./UsersHelpModal.vue"));
 
 const markdown = new MarkdownIt();
 
 const emit = defineEmits(["close"]);
 
 const exercises = ref([]);
+const activeLevels = ref(new Set(["1", "2", "3", "4"]));
+const exerciseSearchQuery = ref("");
 const isLoading = ref(true);
 const isGenerating = ref(false);
 const errorMsg = ref("");
+
+const toggleLevel = (level) => {
+  if (activeLevels.value.has(level)) {
+    activeLevels.value.delete(level);
+  } else {
+    activeLevels.value.add(level);
+  }
+  activeLevels.value = new Set(activeLevels.value);
+};
+
+const filteredExercises = computed(() => {
+  let result = exercises.value;
+  result = result.filter(ex => activeLevels.value.has(String(ex.niveau)));
+  if (exerciseSearchQuery.value) {
+    const q = exerciseSearchQuery.value.toLowerCase();
+    result = result.filter(ex =>
+      (ex.title && ex.title.toLowerCase().includes(q)) ||
+      (ex.enonce && ex.enonce.toLowerCase().includes(q))
+    );
+  }
+  return result;
+});
 
 const currentTab = ref("exercises");
 
@@ -31,25 +55,23 @@ const isUsersLoading = ref(false);
 const isEditingUser = ref(false);
 const isCreatingUser = ref(false);
 const userFormData = ref({ username: "", nom: "", prenom: "" });
-const newUserFormData = ref({ username: "", password: "", nom: "", prenom: "" });
+const editingOriginalUsername = ref("");
+const newUserFormData = ref({ username: "", nom: "", prenom: "" });
 const isUpdatingUser = ref(false);
 const isAddingUser = ref(false);
 const isImportingUsers = ref(false);
+const showExercisesHelp = ref(false);
+const showUsersHelp = ref(false);
 const userCsvInput = ref(null);
 
 const isEditing = ref(false);
 const showForm = ref(false);
 const formData = ref({ id: null, titre: "", niveau: "1", enonce: "", test: "" });
 
-const isChangingPassword = ref(false);
-const passwordError = ref("");
-const passwordForm = ref({ current: "", new: "", confirm: "" });
-
-const admins = ref([]);
-const isAdminsLoading = ref(false);
-const isCreatingAdmin = ref(false);
-const newAdminFormData = ref({ username: "", password: "" });
-const isAddingAdmin = ref(false);
+const studentHistoryTab = ref("performances");
+const historyView = ref("exercise");
+const historyData = ref(null);
+const isHistoryLoading = ref(false);
 
 const safeEnoncePreview = computed(() => {
   if (!formData.value.enonce) return "";
@@ -62,17 +84,52 @@ const formatDate = (isoStr) => {
   return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 };
 
+const formatDateShort = (isoStr) => {
+  if (!isoStr) return "—";
+  const d = new Date(isoStr);
+  return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
+};
+
+const formatTime = (isoStr) => {
+  if (!isoStr) return "";
+  return new Date(isoStr).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+};
+
+const formatDuration = (seconds) => {
+  if (!seconds) return "—";
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return s > 0 ? `${m}min ${s}s` : `${m}min`;
+};
+
+const niveauColorClass = (n) => {
+  const map = {
+    "1": "text-emerald-600 bg-emerald-50 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-500/10 dark:border-emerald-500/20",
+    "2": "text-blue-600 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-500/10 dark:border-blue-500/20",
+    "3": "text-red-600 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-500/10 dark:border-red-500/20",
+    "4": "text-zinc-700 bg-zinc-100 border-zinc-300 dark:text-zinc-300 dark:bg-zinc-700/50 dark:border-zinc-600"
+  };
+  return map[String(n)] || "";
+};
+
 const loadExercises = async () => {
   isLoading.value = true;
   errorMsg.value = "";
   try {
     const token = localStorage.getItem("access_token");
-    const res = await fetch(API_URL + "/title", {
+    const res = await fetch(API_URL + "/admin/exercises/export", {
       headers: { Authorization: `Bearer ${token}` }
     });
     if (!res.ok) throw new Error("Erreur de chargement");
     const data = await res.json();
-    exercises.value = data.title;
+    exercises.value = data.map(ex => ({
+      id: ex.id,
+      title: (ex.titre || "").replace(/\n/g, ""),
+      niveau: String(ex.niveau),
+      enonce: ex.enonce || "",
+      completed: false
+    }));
   } catch (err) {
     errorMsg.value = err.message;
   } finally {
@@ -96,56 +153,49 @@ const loadUsers = async () => {
   }
 };
 
-const loadAdmins = async () => {
-  if (!isSuperAdmin.value) return;
-  isAdminsLoading.value = true;
+const loadStudentHistory = async (studentId) => {
+  isHistoryLoading.value = true;
   try {
     const token = localStorage.getItem("access_token");
-    const res = await fetch(`${API_URL}/admin/admins`, {
+    const res = await fetch(`${API_URL}/admin/student-history/${studentId}`, {
       headers: { Authorization: `Bearer ${token}` }
     });
-    if (res.ok) {
-      admins.value = await res.json();
-    }
+    if (!res.ok) throw new Error("Erreur");
+    historyData.value = await res.json();
   } catch (err) {
-    console.error(err.message);
+    console.error(err);
   } finally {
-    isAdminsLoading.value = false;
+    isHistoryLoading.value = false;
   }
 };
 
-const changePassword = async () => {
-  passwordError.value = "";
-  if (!passwordForm.value.current || !passwordForm.value.new || !passwordForm.value.confirm) {
-    passwordError.value = "Tous les champs sont requis.";
-    return;
+const eventsByDate = computed(() => {
+  if (!historyData.value?.events) return [];
+  const groups = {};
+  for (const event of historyData.value.events) {
+    const date = new Date(event.created_at);
+    const key = date.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(event);
   }
-  if (passwordForm.value.new !== passwordForm.value.confirm) {
-    passwordError.value = "Les nouveaux mots de passe ne correspondent pas.";
-    return;
+  return Object.entries(groups);
+});
+
+const attemptsByExercise = computed(() => {
+  if (!historyData.value?.attempts) return [];
+  const groups = {};
+  for (const att of historyData.value.attempts) {
+    const eid = att.exercise_id;
+    if (!groups[eid]) groups[eid] = [];
+    groups[eid].push(att);
   }
-  if (passwordForm.value.new.length < 4) {
-    passwordError.value = "Le nouveau mot de passe doit contenir au moins 4 caractères.";
-    return;
-  }
-  isChangingPassword.value = true;
-  try {
-    const token = localStorage.getItem("access_token");
-    const res = await fetch(`${API_URL}/admin/profile/password`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ current_password: passwordForm.value.current, new_password: passwordForm.value.new })
-    });
-    if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.detail || "Erreur lors du changement de mot de passe.");
-    }
-    passwordForm.value = { current: "", new: "", confirm: "" };
-    alert("Mot de passe mis à jour avec succès !");
-  } catch (err) {
-    passwordError.value = err.message;
-  } finally {
-    isChangingPassword.value = false;
+  return Object.values(groups);
+});
+
+const switchStudentTab = (tab) => {
+  studentHistoryTab.value = tab;
+  if (tab === "history" && selectedStudent.value) {
+    loadStudentHistory(selectedStudent.value.username);
   }
 };
 
@@ -163,6 +213,7 @@ const openUserEditForm = (user) => {
   isEditingUser.value = true;
   isCreatingUser.value = false;
   selectedStudent.value = null;
+  editingOriginalUsername.value = user.username;
   userFormData.value = { username: user.username, nom: user.nom || "", prenom: user.prenom || "" };
 };
 
@@ -170,22 +221,29 @@ const openCreateUserForm = () => {
   isCreatingUser.value = true;
   isEditingUser.value = false;
   selectedStudent.value = null;
-  newUserFormData.value = { username: "", password: "", nom: "", prenom: "" };
+  newUserFormData.value = { username: "", nom: "", prenom: "" };
 };
 
 const cancelUserEdit = () => { isEditingUser.value = false; };
 const cancelUserCreate = () => { isCreatingUser.value = false; };
 
 const submitUserForm = async () => {
+  if (!userFormData.value.username) {
+    alert("L'identifiant est requis.");
+    return;
+  }
   isUpdatingUser.value = true;
   try {
     const token = localStorage.getItem("access_token");
-    const res = await fetch(`${API_URL}/admin/users/${userFormData.value.username}`, {
+    const res = await fetch(`${API_URL}/admin/users/${editingOriginalUsername.value}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ nom: userFormData.value.nom, prenom: userFormData.value.prenom })
+      body: JSON.stringify({ username: userFormData.value.username, nom: userFormData.value.nom, prenom: userFormData.value.prenom })
     });
-    if (!res.ok) throw new Error("Erreur lors de la mise à jour");
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.detail || "Erreur lors de la mise à jour");
+    }
     alert("Utilisateur mis à jour avec succès !");
     isEditingUser.value = false;
     loadUsers();
@@ -197,8 +255,8 @@ const submitUserForm = async () => {
 };
 
 const submitCreateUserForm = async () => {
-  if (!newUserFormData.value.username || !newUserFormData.value.password) {
-    alert("L'identifiant et le mot de passe sont requis.");
+  if (!newUserFormData.value.username) {
+    alert("L'identifiant est requis.");
     return;
   }
   isAddingUser.value = true;
@@ -227,20 +285,70 @@ const viewUserDashboard = (username) => {
   isEditingUser.value = false;
   isCreatingUser.value = false;
   selectedStudent.value = users.value.find(u => u.username === username) || { username };
+  studentHistoryTab.value = "performances";
+  historyData.value = null;
+};
+
+const goToStudentFromClassView = (username) => {
+  currentTab.value = "users";
+  viewUserDashboard(username);
+};
+
+const toggleConsent = async (user) => {
+  const enabling = !user.consent_given;
+  const message = enabling
+    ? `Confirmez-vous détenir un consentement valide (élève/parents/établissement) pour inclure ${user.username} dans les exports de recherche pseudonymisés ?`
+    : `Retirer ${user.username} des exports de recherche ? Il/elle sera exclu·e de tout futur export.`;
+  if (!confirm(message)) return;
+  try {
+    const token = localStorage.getItem("access_token");
+    const res = await fetch(`${API_URL}/admin/users/${user.username}/consent`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ consent_given: enabling })
+    });
+    if (!res.ok) throw new Error("Erreur lors de la mise à jour du consentement");
+    user.consent_given = enabling;
+  } catch (err) {
+    alert(err.message);
+  }
 };
 
 const resetUserPassword = async (username) => {
-  const newPass = prompt(`Entrez le nouveau mot de passe pour ${username} :`);
-  if (!newPass) return;
+  if (!confirm(`Réinitialiser le mot de passe de ${username} ? Il redeviendra identique à l'identifiant ("${username}") et devra être modifié à la prochaine connexion.`)) return;
   try {
     const token = localStorage.getItem("access_token");
     const res = await fetch(`${API_URL}/admin/users/reset-password`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ username, new_password: newPass })
+      body: JSON.stringify({ username })
     });
     if (!res.ok) throw new Error("Erreur lors de la réinitialisation");
-    alert(`Le mot de passe de ${username} a été réinitialisé.`);
+    alert(`Le mot de passe de ${username} a été réinitialisé (identique à l'identifiant).`);
+  } catch (err) {
+    alert(err.message);
+  }
+};
+
+const deleteUser = async (user) => {
+  if (!confirm(`Supprimer définitivement l'élève "${user.nom || user.prenom ? `${user.prenom} ${user.nom}`.trim() : user.username}" (@${user.username}) et tout son historique ?`)) return;
+  try {
+    const token = localStorage.getItem("access_token");
+    const res = await fetch(`${API_URL}/admin/users/${user.username}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) {
+      const errData = await res.json();
+      throw new Error(errData.detail || "Erreur lors de la suppression");
+    }
+    if (selectedStudent.value && selectedStudent.value.username === user.username) {
+      selectedStudent.value = null;
+    }
+    if (isEditingUser.value && editingOriginalUsername.value === user.username) {
+      isEditingUser.value = false;
+    }
+    loadUsers();
   } catch (err) {
     alert(err.message);
   }
@@ -253,7 +361,7 @@ const triggerUserCSVInput = () => {
 const handleUserCSVUpload = async (event) => {
   const file = event.target.files[0];
   if (!file) return;
-  if (!confirm("ATTENTION : L'importation d'un fichier CSV EFFACERA TOUS vos élèves existants et TOUT leur historique. Êtes-vous sûr ?")) {
+  if (!confirm("Importer les élèves de ce fichier ? ATTENTION : ce fichier représente désormais la liste complète des élèves. Les élèves déjà présents (même nom et prénom) seront conservés avec leur historique, les nouveaux seront créés (login généré automatiquement, modifiable ensuite), et TOUS LES ÉLÈVES ABSENTS DE CE FICHIER SERONT SUPPRIMÉS avec leur historique. Êtes-vous sûr ?")) {
     event.target.value = "";
     return;
   }
@@ -320,79 +428,9 @@ const exportExercises = async () => {
   }
 };
 
-// Super-admin: admin management
-const openCreateAdminForm = () => {
-  isCreatingAdmin.value = true;
-  newAdminFormData.value = { username: "", password: "" };
-};
-
-const submitCreateAdminForm = async () => {
-  if (!newAdminFormData.value.username || !newAdminFormData.value.password) {
-    alert("L'identifiant et le mot de passe sont requis.");
-    return;
-  }
-  isAddingAdmin.value = true;
-  try {
-    const token = localStorage.getItem("access_token");
-    const res = await fetch(`${API_URL}/admin/admins`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify(newAdminFormData.value)
-    });
-    if (!res.ok) {
-      const errData = await res.json();
-      throw new Error(errData.detail || "Erreur");
-    }
-    alert("Admin créé avec succès !");
-    isCreatingAdmin.value = false;
-    loadAdmins();
-  } catch (err) {
-    alert(err.message);
-  } finally {
-    isAddingAdmin.value = false;
-  }
-};
-
-const deleteAdmin = async (adminId) => {
-  if (!confirm("Supprimer cet admin et tous ses élèves et exercices ?")) return;
-  try {
-    const token = localStorage.getItem("access_token");
-    const res = await fetch(`${API_URL}/admin/admins/${adminId}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    if (!res.ok) {
-      const errData = await res.json();
-      throw new Error(errData.detail || "Erreur");
-    }
-    alert("Admin supprimé.");
-    loadAdmins();
-  } catch (err) {
-    alert(err.message);
-  }
-};
-
-const resetAdminPassword = async (adminId) => {
-  const newPass = prompt("Entrez le nouveau mot de passe :");
-  if (!newPass) return;
-  try {
-    const token = localStorage.getItem("access_token");
-    const res = await fetch(`${API_URL}/admin/admins/reset-password`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ admin_id: adminId, new_password: newPass })
-    });
-    if (!res.ok) throw new Error("Erreur");
-    alert("Mot de passe réinitialisé.");
-  } catch (err) {
-    alert(err.message);
-  }
-};
-
 onMounted(() => {
   loadExercises();
   loadUsers();
-  if (isSuperAdmin.value) loadAdmins();
 });
 
 const resetForm = () => {
@@ -506,8 +544,9 @@ const onDragStart = (index) => { draggedIndex.value = index; };
 const onDragOver = (event) => { event.preventDefault(); };
 const onDrop = async (event, index) => {
   if (draggedIndex.value === null || draggedIndex.value === index) return;
+  const targetIndex = draggedIndex.value < index ? index - 1 : index;
   const movedItem = exercises.value.splice(draggedIndex.value, 1)[0];
-  exercises.value.splice(index, 0, movedItem);
+  exercises.value.splice(targetIndex, 0, movedItem);
   draggedIndex.value = null;
   const token = localStorage.getItem("access_token");
   try {
@@ -611,8 +650,7 @@ function parseExercisesFromText(text) {
         <nav class="flex gap-1 bg-zinc-200/50 dark:bg-zinc-950/50 p-1.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-inner">
           <button @click="currentTab = 'exercises'" :class="currentTab === 'exercises' ? 'bg-white dark:bg-zinc-800 text-blue-600 dark:text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'" class="px-6 py-2 rounded-xl text-xs font-black transition-all uppercase tracking-widest">Exercices</button>
           <button @click="currentTab = 'users'" :class="currentTab === 'users' ? 'bg-white dark:bg-zinc-800 text-blue-600 dark:text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'" class="px-6 py-2 rounded-xl text-xs font-black transition-all uppercase tracking-widest">Élèves</button>
-          <button @click="currentTab = 'account'" :class="currentTab === 'account' ? 'bg-white dark:bg-zinc-800 text-blue-600 dark:text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'" class="px-6 py-2 rounded-xl text-xs font-black transition-all uppercase tracking-widest">Mon compte</button>
-          <button v-if="isSuperAdmin" @click="currentTab = 'admins'" :class="currentTab === 'admins' ? 'bg-white dark:bg-zinc-800 text-blue-600 dark:text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'" class="px-6 py-2 rounded-xl text-xs font-black transition-all uppercase tracking-widest">Admins</button>
+          <button @click="currentTab = 'class'" :class="currentTab === 'class' ? 'bg-white dark:bg-zinc-800 text-blue-600 dark:text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'" class="px-6 py-2 rounded-xl text-xs font-black transition-all uppercase tracking-widest">Stat</button>
         </nav>
       </div>
       <button @click="$emit('close')" class="px-6 py-2 bg-zinc-100 dark:bg-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-600 text-zinc-600 dark:text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all border border-zinc-200 dark:border-zinc-600 shadow-sm">Quitter</button>
@@ -624,10 +662,29 @@ function parseExercisesFromText(text) {
       <template v-if="currentTab === 'exercises'">
         <aside class="w-80 flex-shrink-0 border-r border-zinc-200 dark:border-zinc-800 flex flex-col bg-zinc-50/50 dark:bg-zinc-800/50 transition-colors duration-300">
           <div class="p-6 border-b border-zinc-200 dark:border-zinc-800 flex justify-between items-center">
-            <h2 class="font-black text-zinc-800 dark:text-zinc-100 uppercase tracking-widest text-xs">Vos Exercices</h2>
+            <h2 class="font-black text-zinc-800 dark:text-zinc-100 uppercase tracking-widest text-xs flex items-center gap-2">
+              Vos Exercices
+              <button @click="showExercisesHelp = true" class="flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-black bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 hover:scale-110 transition-all" title="Comprendre l'ajout, l'import et l'export">?</button>
+            </h2>
             <button @click="openCreateForm" class="p-2 bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 dark:text-blue-400 rounded-xl transition-all shadow-sm border border-blue-600/20" title="Créer un exercice">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
             </button>
+          </div>
+          <div class="px-6 py-3 border-b border-zinc-100 dark:border-zinc-800/50 bg-white/50 dark:bg-transparent space-y-3">
+            <div class="relative">
+              <input v-model="exerciseSearchQuery" type="text" placeholder="Rechercher un exercice..." class="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-3 pl-10 text-sm focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-500 outline-none transition-all shadow-sm dark:shadow-none dark:text-white">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 absolute left-3.5 top-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+              <button v-if="exerciseSearchQuery" @click="exerciseSearchQuery = ''" class="absolute right-3 top-3 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" /></svg>
+              </button>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest mr-1">Niveau</span>
+              <button @click="toggleLevel('1')" :class="activeLevels.has('1') ? 'bg-emerald-500 text-white shadow-sm border-emerald-500' : 'bg-white dark:bg-zinc-800 text-zinc-400 border-zinc-200 dark:border-zinc-700'" class="px-3 py-1.5 rounded-lg text-[10px] font-black transition-all border">1</button>
+              <button @click="toggleLevel('2')" :class="activeLevels.has('2') ? 'bg-blue-500 text-white shadow-sm border-blue-500' : 'bg-white dark:bg-zinc-800 text-zinc-400 border-zinc-200 dark:border-zinc-700'" class="px-3 py-1.5 rounded-lg text-[10px] font-black transition-all border">2</button>
+              <button @click="toggleLevel('3')" :class="activeLevels.has('3') ? 'bg-red-500 text-white shadow-sm border-red-500' : 'bg-white dark:bg-zinc-800 text-zinc-400 border-zinc-200 dark:border-zinc-700'" class="px-3 py-1.5 rounded-lg text-[10px] font-black transition-all border">3</button>
+              <button @click="toggleLevel('4')" :class="activeLevels.has('4') ? 'bg-zinc-800 text-white dark:bg-zinc-600 shadow-sm border-zinc-800 dark:border-zinc-600' : 'bg-white dark:bg-zinc-800 text-zinc-400 border-zinc-200 dark:border-zinc-700'" class="px-3 py-1.5 rounded-lg text-[10px] font-black transition-all border">4</button>
+            </div>
           </div>
           <div class="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800/50 bg-white/50 dark:bg-transparent">
             <input type="file" ref="fileInput" accept=".json" class="hidden" @change="handleFileUpload" />
@@ -644,7 +701,7 @@ function parseExercisesFromText(text) {
             <div v-if="isLoading" class="flex justify-center py-8"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>
             <div v-else-if="errorMsg" class="text-red-500 text-xs py-4 text-center font-bold">{{ errorMsg }}</div>
             <ul v-else class="space-y-2">
-              <li v-for="(ex, index) in exercises" :key="ex.id" draggable="true" @dragstart="onDragStart(index)" @dragover="onDragOver" @drop="onDrop($event, index)" class="flex items-center justify-between p-4 bg-transparent border border-transparent rounded-2xl hover:bg-white dark:hover:bg-zinc-800 hover:shadow-sm dark:hover:shadow-none hover:border-zinc-200 dark:hover:border-zinc-700 transition-all cursor-move group">
+              <li v-for="(ex, index) in filteredExercises" :key="ex.id" draggable="true" @dragstart="onDragStart(exercises.findIndex(e => e.id === ex.id))" @dragover="onDragOver" @drop="onDrop($event, exercises.findIndex(e => e.id === ex.id))" class="flex items-center justify-between p-4 bg-transparent border border-transparent rounded-2xl hover:bg-white dark:hover:bg-zinc-800 hover:shadow-sm dark:hover:shadow-none hover:border-zinc-200 dark:hover:border-zinc-700 transition-all cursor-move group">
                 <div class="flex items-center gap-4 flex-1 min-w-0 pr-4">
                   <div class="text-zinc-300 dark:text-zinc-600 group-hover:text-zinc-400">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd" /></svg>
@@ -738,7 +795,10 @@ function parseExercisesFromText(text) {
       <template v-else-if="currentTab === 'users'">
         <aside class="w-80 flex-shrink-0 border-r border-zinc-200 dark:border-zinc-800 flex flex-col bg-zinc-50/50 dark:bg-zinc-800/50 transition-colors duration-300">
           <div class="p-6 border-b border-zinc-200 dark:border-zinc-800">
-            <h2 class="font-black text-zinc-800 dark:text-zinc-100 uppercase tracking-widest text-xs mb-4">Élèves</h2>
+            <h2 class="font-black text-zinc-800 dark:text-zinc-100 uppercase tracking-widest text-xs mb-4 flex items-center gap-2">
+              Élèves
+              <button @click="showUsersHelp = true" class="flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-black bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 hover:scale-110 transition-all" title="Comprendre l'ajout, l'import et l'export">?</button>
+            </h2>
             <div class="relative mb-4">
               <input v-model="userSearchQuery" type="text" placeholder="Rechercher..." class="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-3 pl-10 text-sm focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-500 outline-none transition-all shadow-sm dark:shadow-none dark:text-white">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 absolute left-3.5 top-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
@@ -769,12 +829,22 @@ function parseExercisesFromText(text) {
                       {{ user.nom }} {{ user.prenom }}
                       <span v-if="!user.prenom && !user.nom">{{ user.username }}</span>
                     </span>
-                    <span class="text-[9px] text-zinc-400 dark:text-zinc-500 font-black uppercase tracking-widest truncate">@{{ user.username }}</span>
+                    <span class="text-[9px] text-zinc-400 dark:text-zinc-500 font-black uppercase tracking-widest truncate flex items-center gap-1.5">
+                      @{{ user.username }}
+                      <span v-if="user.must_change_password" title="L'élève doit encore changer son mot de passe" class="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0"></span>
+                      <span :title="user.consent_given ? 'Consentement recherche obtenu' : 'Pas de consentement recherche'" class="w-1.5 h-1.5 rounded-full flex-shrink-0" :class="user.consent_given ? 'bg-emerald-500' : 'bg-zinc-300 dark:bg-zinc-600'"></span>
+                    </span>
                   </div>
                 </div>
                 <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button @click.stop="toggleConsent(user)" :class="user.consent_given ? 'text-emerald-500 hover:text-emerald-600' : 'text-zinc-400 hover:text-emerald-500 dark:hover:text-emerald-400'" class="p-1.5 transition-colors" :title="user.consent_given ? 'Consentement recherche obtenu (cliquer pour retirer)' : 'Enregistrer un consentement recherche'">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                  </button>
                   <button @click.stop="openUserEditForm(user)" class="p-1.5 text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                  </button>
+                  <button @click.stop="deleteUser(user)" class="p-1.5 text-zinc-400 hover:text-red-500 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                   </button>
                 </div>
               </li>
@@ -792,18 +862,12 @@ function parseExercisesFromText(text) {
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
-            <div class="grid grid-cols-2 gap-8">
-              <div class="space-y-6">
-                <div class="space-y-3">
-                  <label class="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest ml-1">Identifiant (login)</label>
-                  <input v-model="newUserFormData.username" type="text" class="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-4 text-zinc-800 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner" placeholder="ex: jdupont">
-                </div>
-                <div class="space-y-3">
-                  <label class="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest ml-1">Mot de passe provisoire</label>
-                  <input v-model="newUserFormData.password" type="password" class="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-4 text-zinc-800 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner" placeholder="••••••••">
-                </div>
+            <div class="space-y-6">
+              <div class="space-y-3">
+                <label class="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest ml-1">Identifiant (login)</label>
+                <input v-model="newUserFormData.username" type="text" class="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-4 text-zinc-800 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner" placeholder="ex: jdupont">
               </div>
-              <div class="space-y-6">
+              <div class="grid grid-cols-2 gap-6">
                 <div class="space-y-3">
                   <label class="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest ml-1">Prénom</label>
                   <input v-model="newUserFormData.prenom" type="text" class="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-4 text-zinc-800 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner" placeholder="Jean">
@@ -812,6 +876,9 @@ function parseExercisesFromText(text) {
                   <label class="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest ml-1">Nom</label>
                   <input v-model="newUserFormData.nom" type="text" class="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-4 text-zinc-800 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner" placeholder="Dupont">
                 </div>
+              </div>
+              <div class="text-xs text-zinc-500 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-4">
+                Le mot de passe initial de l'élève sera automatiquement identique à son identifiant. Il devra le modifier à sa première connexion.
               </div>
             </div>
             <div class="flex justify-end gap-4 pt-8 border-t border-zinc-100 dark:border-zinc-700">
@@ -823,17 +890,21 @@ function parseExercisesFromText(text) {
             </div>
           </div>
 
-          <div v-if="isEditingUser" class="max-w-4xl mx-auto space-y-8 bg-white dark:bg-zinc-800 p-10 rounded-[2.5rem] shadow-2xl border border-zinc-100 dark:border-zinc-700 transition-all duration-300">
+          <div v-else-if="isEditingUser" class="max-w-4xl mx-auto space-y-8 bg-white dark:bg-zinc-800 p-10 rounded-[2.5rem] shadow-2xl border border-zinc-100 dark:border-zinc-700 transition-all duration-300">
             <div class="flex justify-between items-start border-b border-zinc-100 dark:border-zinc-700 pb-6">
               <div>
                 <h2 class="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-2">Édition de Profil</h2>
-                <h1 class="text-3xl font-black text-zinc-800 dark:text-white tracking-tight italic">@{{ userFormData.username }}</h1>
+                <h1 class="text-3xl font-black text-zinc-800 dark:text-white tracking-tight italic">@{{ editingOriginalUsername }}</h1>
               </div>
               <button @click="cancelUserEdit" class="p-2 text-zinc-400 hover:text-red-500 transition-colors bg-zinc-50 dark:bg-zinc-900 rounded-xl border border-zinc-100 dark:border-zinc-700 shadow-sm">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
             <div class="space-y-8">
+              <div class="space-y-3">
+                <label class="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest ml-1">Identifiant (login)</label>
+                <input v-model="userFormData.username" type="text" class="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-4 text-zinc-800 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner">
+              </div>
               <div class="grid grid-cols-2 gap-6">
                 <div class="space-y-3">
                   <label class="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest ml-1">Prénom</label>
@@ -845,7 +916,7 @@ function parseExercisesFromText(text) {
                 </div>
               </div>
               <div class="pt-8 border-t border-zinc-100 dark:border-zinc-700 space-y-4">
-                <button @click="resetUserPassword(userFormData.username)" class="w-full py-4 rounded-2xl font-black text-[10px] text-amber-600 dark:text-amber-500 bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/10 transition-all uppercase tracking-widest shadow-sm">Réinitialiser le mot de passe</button>
+                <button @click="resetUserPassword(editingOriginalUsername)" class="w-full py-4 rounded-2xl font-black text-[10px] text-amber-600 dark:text-amber-500 bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/10 transition-all uppercase tracking-widest shadow-sm">Réinitialiser le mot de passe</button>
                 <button @click="submitUserForm" :disabled="isUpdatingUser" class="w-full py-5 rounded-2xl font-black text-xs text-white bg-blue-600 hover:bg-blue-500 transition-all shadow-xl shadow-blue-500/20 uppercase tracking-[0.2em] disabled:opacity-50">{{ isUpdatingUser ? 'Magie en cours...' : 'Sauvegarder les modifications' }}</button>
               </div>
             </div>
@@ -860,151 +931,154 @@ function parseExercisesFromText(text) {
           </div>
 
           <div v-else class="h-full flex flex-col transition-all animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div class="flex justify-between items-end mb-8 pb-6 border-b border-zinc-200 dark:border-zinc-700">
+            <div class="flex justify-between items-end mb-6 pb-4 border-b border-zinc-200 dark:border-zinc-700">
               <div class="flex items-center gap-6">
                 <div class="w-16 h-16 rounded-[1.5rem] bg-blue-600 flex items-center justify-center text-xl font-black text-white shadow-xl shadow-blue-500/20">
                   {{ (selectedStudent.prenom || selectedStudent.username).substring(0, 1).toUpperCase() }}
                 </div>
                 <div>
-                  <h2 class="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1">Dossier Étudiant</h2>
+                  <h2 class="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1">Dossier Élève</h2>
                   <h1 class="text-3xl font-black text-zinc-800 dark:text-white px-0 tracking-tighter">
                     <template v-if="selectedStudent.prenom || selectedStudent.nom">{{ selectedStudent.prenom }} {{ selectedStudent.nom }}</template>
                     <template v-else>{{ selectedStudent.username.toUpperCase() }}</template>
                   </h1>
                 </div>
               </div>
-              <button @click="selectedStudent = null" class="px-5 py-2.5 text-[10px] font-black text-zinc-400 hover:text-white bg-white dark:bg-zinc-800 hover:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl uppercase tracking-widest transition-all shadow-sm">Fermer</button>
+              <div class="flex items-center gap-3">
+                <div class="flex gap-1 bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                  <button @click="studentHistoryTab = 'performances'" :class="studentHistoryTab === 'performances' ? 'bg-white dark:bg-zinc-700 text-blue-600 dark:text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'" class="px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all">Performances</button>
+                  <button @click="switchStudentTab('history')" :class="studentHistoryTab === 'history' ? 'bg-white dark:bg-zinc-700 text-blue-600 dark:text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'" class="px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all">Historique</button>
+                </div>
+                <button @click="selectedStudent = null" class="px-5 py-2.5 text-[10px] font-black text-zinc-400 hover:text-white bg-white dark:bg-zinc-800 hover:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl uppercase tracking-widest transition-all shadow-sm">Fermer</button>
+              </div>
             </div>
             <div class="flex-1 bg-white dark:bg-zinc-950/20 rounded-[3rem] border border-zinc-200 dark:border-zinc-800/50 p-4 lg:p-10 shadow-2xl relative overflow-hidden transition-colors duration-300">
               <div class="absolute -top-40 -right-40 w-80 h-80 bg-blue-500/10 dark:bg-blue-600/5 blur-[100px] rounded-full pointer-events-none"></div>
-              <Dashboard :key="selectedStudent.username" :studentId="selectedStudent.username" />
-            </div>
-          </div>
-        </main>
-      </template>
 
-      <!-- TAB MON COMPTE -->
-      <template v-else-if="currentTab === 'account'">
-        <main class="flex-1 bg-zinc-50 dark:bg-zinc-900/40 p-8 overflow-y-auto custom-scrollbar transition-colors duration-300">
-          <div class="max-w-2xl mx-auto space-y-8">
-            <div class="border-b border-zinc-200 dark:border-zinc-800 pb-6">
-              <h2 class="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-2">Configuration</h2>
-              <h1 class="text-3xl font-black text-zinc-800 dark:text-white tracking-tight italic">Mon compte</h1>
-            </div>
-
-            <div class="bg-white dark:bg-zinc-800 rounded-[2rem] p-8 shadow-xl border border-zinc-100 dark:border-zinc-700">
-              <h3 class="text-sm font-black text-zinc-800 dark:text-white uppercase tracking-widest mb-2">Changer le mot de passe</h3>
-              <p class="text-xs text-zinc-500 dark:text-zinc-400 mb-6">Modifiez votre mot de passe d'authentification.</p>
-
-              <div v-if="passwordError" class="flex items-center gap-3 mb-4 px-4 py-3 bg-red-50 dark:bg-red-500/5 border border-red-200 dark:border-red-500/20 rounded-2xl">
-                <span class="text-xs font-bold text-red-700 dark:text-red-400">{{ passwordError }}</span>
+              <div v-if="studentHistoryTab === 'performances'" class="h-full overflow-y-auto custom-scrollbar pr-2 -mr-2">
+                <Dashboard :key="selectedStudent.username" :studentId="selectedStudent.username" />
               </div>
 
-              <div class="space-y-4">
-                <div class="space-y-3">
-                  <label class="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest ml-1">Mot de passe actuel</label>
-                  <input v-model="passwordForm.current" type="password" class="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-4 text-zinc-800 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner" placeholder="••••••••">
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                  <div class="space-y-3">
-                    <label class="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest ml-1">Nouveau mot de passe</label>
-                    <input v-model="passwordForm.new" type="password" class="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-4 text-zinc-800 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner" placeholder="••••••••">
+              <div v-else class="h-full flex flex-col relative">
+                <div class="flex items-center justify-between mb-6">
+                  <div class="flex gap-1 bg-zinc-100 dark:bg-zinc-800 p-1 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                    <button @click="historyView = 'exercise'" :class="historyView === 'exercise' ? 'bg-white dark:bg-zinc-700 text-blue-600 dark:text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-700'" class="px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-wider transition-all">Par exercice</button>
+                    <button @click="historyView = 'date'" :class="historyView === 'date' ? 'bg-white dark:bg-zinc-700 text-blue-600 dark:text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-700'" class="px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-wider transition-all">Chronologique</button>
                   </div>
-                  <div class="space-y-3">
-                    <label class="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest ml-1">Confirmer</label>
-                    <input v-model="passwordForm.confirm" type="password" class="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-4 text-zinc-800 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner" placeholder="••••••••">
+                  <div v-if="historyData" class="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">
+                    {{ attemptsByExercise.length }} exercice{{ attemptsByExercise.length !== 1 ? 's' : '' }} tenté{{ attemptsByExercise.length !== 1 ? 's' : '' }} — {{ historyData.attempts.length }} passage{{ historyData.attempts.length !== 1 ? 's' : '' }}
                   </div>
                 </div>
-                <div class="pt-4">
-                  <button @click="changePassword" :disabled="isChangingPassword" class="px-8 py-4 rounded-2xl font-black text-[11px] text-white bg-blue-600 hover:bg-blue-500 transition-all shadow-xl shadow-blue-500/20 uppercase tracking-[0.2em] disabled:opacity-50">
-                    {{ isChangingPassword ? 'Mise à jour...' : 'Changer le mot de passe' }}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </main>
-      </template>
 
-      <!-- TAB ADMINS (super-admin only) -->
-      <template v-else-if="currentTab === 'admins' && isSuperAdmin">
-        <main class="flex-1 bg-zinc-50 dark:bg-zinc-900/40 p-8 overflow-y-auto custom-scrollbar transition-colors duration-300">
-          <div class="max-w-4xl mx-auto space-y-8">
-            <div class="flex justify-between items-end border-b border-zinc-200 dark:border-zinc-800 pb-6">
-              <div>
-                <h2 class="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-2">Administration</h2>
-                <h1 class="text-3xl font-black text-zinc-800 dark:text-white tracking-tight italic">Gestion des admins</h1>
-              </div>
-              <button @click="openCreateAdminForm" class="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-xl shadow-blue-500/20">+ Nouvel admin</button>
-            </div>
-
-            <div v-if="isCreatingAdmin" class="bg-white dark:bg-zinc-800 rounded-[2rem] p-8 shadow-xl border border-zinc-100 dark:border-zinc-700 space-y-6 animate-in fade-in zoom-in-95 duration-500">
-              <h3 class="text-sm font-black text-zinc-800 dark:text-white uppercase tracking-widest">Créer un admin</h3>
-              <div class="grid grid-cols-2 gap-6">
-                <div class="space-y-3">
-                  <label class="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest ml-1">Identifiant</label>
-                  <input v-model="newAdminFormData.username" type="text" class="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-4 text-zinc-800 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner" placeholder="login admin">
+                <div v-if="isHistoryLoading" class="flex-1 flex items-center justify-center">
+                  <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                 </div>
-                <div class="space-y-3">
-                  <label class="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest ml-1">Mot de passe</label>
-                  <input v-model="newAdminFormData.password" type="password" class="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-4 text-zinc-800 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner" placeholder="••••••••">
-                </div>
-              </div>
-              <div class="flex gap-4 pt-4 border-t border-zinc-100 dark:border-zinc-700">
-                <button @click="isCreatingAdmin = false" class="px-8 py-4 rounded-xl font-black text-[10px] text-zinc-400 hover:text-red-500 transition-colors uppercase tracking-widest">Annuler</button>
-                <button @click="submitCreateAdminForm" :disabled="isAddingAdmin" class="px-10 py-4 rounded-xl font-black text-[11px] text-white bg-blue-600 hover:bg-blue-500 transition-all shadow-xl shadow-blue-500/20 uppercase tracking-[0.2em] disabled:opacity-50">
-                  {{ isAddingAdmin ? 'Création...' : 'Créer' }}
-                </button>
-              </div>
-            </div>
 
-            <div v-if="isAdminsLoading" class="flex justify-center py-12"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>
-            <div v-else class="space-y-3">
-              <div v-for="adm in admins" :key="adm.id" class="bg-white dark:bg-zinc-800 rounded-2xl p-6 shadow-sm border border-zinc-100 dark:border-zinc-700 group">
-                <div class="flex items-center justify-between">
-                  <div class="flex items-center gap-4">
-                    <div class="w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm shadow-sm" :class="adm.is_super ? 'bg-amber-100 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20' : 'bg-blue-100 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20'">
-                      {{ adm.is_super ? 'SA' : 'A' }}
-                    </div>
-                    <div>
+                <div v-else-if="!historyData || historyData.attempts.length === 0" class="flex-1 flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-600">
+                  <div class="w-20 h-20 rounded-[2rem] bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-6 border border-zinc-200 dark:border-zinc-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                  </div>
+                  <p class="text-[10px] font-black uppercase tracking-[0.4em] opacity-40">Aucune activité</p>
+                  <p class="text-xs opacity-60 mt-3 italic">Cet élève n'a pas encore tenté d'exercice</p>
+                </div>
+
+                <div v-else-if="historyView === 'exercise'" class="flex-1 overflow-y-auto custom-scrollbar space-y-3 -mr-2 pr-2">
+                  <div v-for="(exerciseAttempts, idx) in attemptsByExercise" :key="exerciseAttempts[0].exercise_id" class="bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl border border-zinc-200 dark:border-zinc-700/50 hover:border-zinc-300 dark:hover:border-zinc-600 transition-all overflow-hidden">
+                    <div class="flex items-center justify-between px-5 pt-4 pb-2">
                       <div class="flex items-center gap-3">
-                        <span class="font-black text-zinc-800 dark:text-white tracking-tight">{{ adm.username }}</span>
-                        <span v-if="adm.is_super" class="text-[9px] font-black text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/5 px-3 py-1 rounded-full border border-amber-200 dark:border-amber-500/20 uppercase tracking-widest">Super-admin</span>
+                        <span class="w-8 h-8 rounded-lg bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center text-[10px] font-black text-zinc-500 dark:text-zinc-400">#{{ idx + 1 }}</span>
+                        <h3 class="font-black text-zinc-800 dark:text-white text-sm tracking-tight uppercase">{{ exerciseAttempts[0].exercise_title }}</h3>
                       </div>
-                      <span class="text-xs text-zinc-400 dark:text-zinc-500 font-bold">{{ adm.nb_students }} élève{{ adm.nb_students !== 1 ? 's' : '' }}</span>
+                      <div class="flex items-center gap-2">
+                        <span class="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border" :class="niveauColorClass(exerciseAttempts[0].exercise_niveau)">Niv. {{ exerciseAttempts[0].exercise_niveau }}</span>
+                        <span class="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-600">{{ exerciseAttempts.length }} passage{{ exerciseAttempts.length !== 1 ? 's' : '' }}</span>
+                      </div>
+                    </div>
+                    <div class="divide-y divide-zinc-100 dark:divide-zinc-700/50">
+                      <div v-for="att in exerciseAttempts" :key="att.attempt_number" class="px-5 py-3 flex items-center gap-5 text-xs text-zinc-500 dark:text-zinc-400 flex-wrap">
+                        <span class="text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500 flex-shrink-0 w-24">Passage {{ att.attempt_number }}</span>
+                        <span v-if="att.solved" class="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 flex-shrink-0">Résolu</span>
+                        <span v-else class="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20 flex-shrink-0">En cours</span>
+                        <span class="flex items-center gap-1.5">
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                          {{ formatDateShort(att.first_attempt_at) }}
+                          <template v-if="att.last_attempt_at !== att.first_attempt_at">
+                            <span class="text-zinc-300 dark:text-zinc-600">→</span>
+                            {{ formatDateShort(att.last_attempt_at) }}
+                          </template>
+                        </span>
+                        <span class="flex items-center gap-1.5">
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                          {{ att.total_attempts }} tentative{{ att.total_attempts !== 1 ? 's' : '' }}
+                        </span>
+                        <span v-if="att.ai_requests > 0" class="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                          <span>🤖</span> IA ({{ att.ai_requests }})
+                        </span>
+                        <span v-else class="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                          <span>🧠</span> Sans IA
+                        </span>
+                        <span v-if="att.total_duration > 0" class="flex items-center gap-1.5">
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                          {{ formatDuration(att.total_duration) }}
+                        </span>
+                        <span v-if="att.solved_at" class="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                          {{ formatDate(att.solved_at) }}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  <div v-if="!adm.is_super" class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button @click="resetAdminPassword(adm.id)" class="px-4 py-2 text-[10px] font-black text-amber-600 dark:text-amber-500 bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 rounded-xl uppercase tracking-widest hover:bg-amber-100 dark:hover:bg-amber-500/10 transition-all">Reset mdp</button>
-                    <button @click="deleteAdmin(adm.id)" class="px-4 py-2 text-[10px] font-black text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/5 border border-red-200 dark:border-red-500/20 rounded-xl uppercase tracking-widest hover:bg-red-100 dark:hover:bg-red-500/10 transition-all">Supprimer</button>
-                  </div>
                 </div>
-                <div v-if="!adm.is_super" class="mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-700 grid grid-cols-4 gap-4">
-                  <div class="text-center">
-                    <div class="text-lg font-black text-zinc-800 dark:text-white">{{ adm.nb_exercises }}</div>
-                    <div class="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Exercices</div>
-                  </div>
-                  <div class="text-center">
-                    <div class="text-lg font-black text-blue-600 dark:text-blue-400">{{ adm.nb_ai_requests }}</div>
-                    <div class="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Requêtes IA</div>
-                  </div>
-                  <div class="text-center">
-                    <div class="text-lg font-black text-zinc-800 dark:text-white">{{ adm.nb_total_requests }}</div>
-                    <div class="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Total événements</div>
-                  </div>
-                  <div class="text-center">
-                    <div class="text-sm font-black text-zinc-800 dark:text-white">{{ formatDate(adm.last_activity) }}</div>
-                    <div class="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Dernière activité</div>
+
+                <div v-else class="flex-1 overflow-y-auto custom-scrollbar space-y-6 -mr-2 pr-2">
+                  <div v-for="([date, evts], idx) in eventsByDate" :key="idx">
+                    <div class="sticky top-0 bg-white dark:bg-zinc-950/80 backdrop-blur-sm py-2 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-500 border-b border-zinc-100 dark:border-zinc-800 mb-2 z-10">
+                      {{ date }}
+                    </div>
+                    <div class="space-y-1">
+                      <div v-for="event in evts" :key="event.id" class="flex items-center gap-4 p-3 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
+                        <span class="text-xs font-mono text-zinc-400 dark:text-zinc-500 w-12 flex-shrink-0">{{ formatTime(event.created_at) }}</span>
+                        <span class="w-7 flex-shrink-0 text-center">
+                          <template v-if="event.status === 'success'">
+                            <span class="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
+                            </span>
+                          </template>
+                          <template v-else-if="event.status === 'failure'">
+                            <span class="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-red-100 dark:bg-red-500/10 text-red-500 dark:text-red-400">
+                              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                            </span>
+                          </template>
+                        </span>
+                        <span class="font-bold text-sm text-zinc-700 dark:text-zinc-300 flex-1 min-w-0 truncate">{{ event.exercise_title }}</span>
+                        <span v-if="event.error_type" class="text-[10px] font-mono text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-500/10 px-2 py-1 rounded-lg border border-red-200 dark:border-red-500/20 max-w-[200px] truncate">{{ event.error_type }}</span>
+                        <span v-if="event.status === 'success'" class="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Réussi</span>
+                        <span v-else-if="event.status === 'failure'" class="text-[10px] font-black text-red-500 dark:text-red-400 uppercase tracking-wider">Échec</span>
+                        <span v-if="event.duration" class="text-[10px] text-zinc-400 dark:text-zinc-500 flex-shrink-0">{{ formatDuration(event.duration) }}</span>
+                        <span v-if="event.ai_used" title="Assistant IA sollicité pour cette tentative" class="w-6 h-6 flex-shrink-0 inline-flex items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-500/10 text-sm">🤖</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-              <div v-if="admins.length === 0" class="text-center py-12 text-zinc-400 text-sm italic">Aucun admin enregistré.</div>
             </div>
+          </div>
+        </main>
+      </template>
+
+      <!-- TAB STAT -->
+      <template v-else-if="currentTab === 'class'">
+        <main class="flex-1 bg-zinc-50 dark:bg-zinc-900/40 p-8 overflow-y-auto custom-scrollbar transition-colors duration-300">
+          <div class="max-w-[1400px] mx-auto">
+            <ClassDashboard @select-student="goToStudentFromClassView" />
           </div>
         </main>
       </template>
 
     </div>
+
+    <ExercisesHelpModal v-if="showExercisesHelp" :isDarkMode="isDarkMode" @close="showExercisesHelp = false" />
+    <UsersHelpModal v-if="showUsersHelp" :isDarkMode="isDarkMode" @close="showUsersHelp = false" />
   </div>
 </template>
 

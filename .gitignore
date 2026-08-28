@@ -22,3 +22,6 @@ Thumbs.db
 # Runtime
 serveur/code.db
 serveur/uvicorn.log
+
+# Outils
+outils/

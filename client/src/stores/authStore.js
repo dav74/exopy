@@ -9,6 +9,7 @@ export const useAuthStore = defineStore('auth', () => {
   const isAdmin = ref(false)
   const isSuperAdmin = ref(false)
   const aiEnabled = ref(false)
+  const mustChangePassword = ref(false)
 
   function _decodeRole() {
     isAdmin.value = false
@@ -32,6 +33,7 @@ export const useAuthStore = defineStore('auth', () => {
     _decodeRole()
     userFullInfo.value = { nom: '', prenom: '' }
     aiEnabled.value = false
+    mustChangePassword.value = false
   }
 
   function setUserFullInfo(info) {
@@ -39,6 +41,7 @@ export const useAuthStore = defineStore('auth', () => {
     if (info.ai_enabled !== undefined) {
       aiEnabled.value = !!info.ai_enabled
     }
+    mustChangePassword.value = !!info.must_change_password
   }
 
   function setAssistantStatus(status) {
@@ -49,6 +52,7 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem("access_token")
     localStorage.removeItem("username")
     id_user.value = ""
+    mustChangePassword.value = false
     window.location.reload()
   }
 
@@ -63,5 +67,5 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  return { id_user, userFullInfo, assistantIsOn, isAdmin, isSuperAdmin, aiEnabled, setUserId, setUserFullInfo, setAssistantStatus, logout, checkSavedAuth }
+  return { id_user, userFullInfo, assistantIsOn, isAdmin, isSuperAdmin, aiEnabled, mustChangePassword, setUserId, setUserFullInfo, setAssistantStatus, logout, checkSavedAuth }
 })

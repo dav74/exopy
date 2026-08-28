@@ -1,10 +1,132 @@
 from fastapi import APIRouter, Depends, HTTPException
-from core.security import get_current_user, AuthUser
+from core.security import get_current_user, get_current_admin, AuthUser
 from models.schemas import StudentMetrics, LogEvent
 from core.database import get_db
+from datetime import datetime, timedelta, timezone
+import bisect
 import psycopg2.extras
 
 router = APIRouter(tags=["metrics"])
+
+@router.get('/api/metrics/class')
+def get_class_metrics(admin: AuthUser = Depends(get_current_admin)):
+    admin_id = admin.admin_id
+    try:
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute(
+                    """SELECT u.username, u.nom, u.prenom, COALESCE(rc.consent_given, FALSE) AS consent_given
+                       FROM users u
+                       LEFT JOIN research_consent rc ON rc.user_id = u.username
+                       WHERE u.admin_id = %s ORDER BY u.nom, u.prenom""",
+                    (admin_id,)
+                )
+                students = [dict(row) for row in cur.fetchall()]
+
+                cur.execute(
+                    "SELECT id, titre, niveau FROM exercises WHERE admin_id = %s ORDER BY ordering, id",
+                    (admin_id,)
+                )
+                exercises_list = [dict(row) for row in cur.fetchall()]
+
+                usernames = [s['username'] for s in students]
+                logs = []
+                if usernames and exercises_list:
+                    cur.execute(
+                        """SELECT user_id, exercise_id, status, error_type, created_at
+                           FROM user_progress
+                           WHERE user_id = ANY(%s) AND exercise_id = ANY(%s)""",
+                        (usernames, [ex['id'] for ex in exercises_list])
+                    )
+                    logs = [dict(row) for row in cur.fetchall()]
+
+        exercise_ids = [ex['id'] for ex in exercises_list]
+        ex_titles = {ex['id']: ex['titre'] for ex in exercises_list}
+
+        logs_by_user = {}
+        for log in logs:
+            logs_by_user.setdefault(log['user_id'], []).append(log)
+
+        now = datetime.now(timezone.utc)
+        heatmap = {}
+        alerts = []
+
+        for s in students:
+            uname = s['username']
+            user_logs = logs_by_user.get(uname, [])
+            status_by_ex = {}
+
+            for ex_id in exercise_ids:
+                ex_attempts = [l for l in user_logs if l['exercise_id'] == ex_id and l['status'] in ('success', 'failure')]
+                if not ex_attempts:
+                    status_by_ex[ex_id] = "not_started"
+                elif any(l['status'] == 'success' for l in ex_attempts):
+                    status_by_ex[ex_id] = "success_hard" if len(ex_attempts) > 4 else "success"
+                else:
+                    status_by_ex[ex_id] = "failure"
+
+                    fails = [l for l in ex_attempts if l['status'] == 'failure']
+                    if len(fails) >= 3:
+                        alerts.append({
+                            "username": uname, "type": "stuck",
+                            "exercise_id": ex_id, "exercise_title": ex_titles.get(ex_id),
+                            "attempts": len(fails)
+                        })
+            heatmap[uname] = status_by_ex
+
+            if user_logs:
+                last_activity = max(l['created_at'] for l in user_logs)
+                if last_activity.tzinfo is None:
+                    last_activity = last_activity.replace(tzinfo=timezone.utc)
+                days_inactive = (now - last_activity).days
+                if days_inactive >= 7:
+                    alerts.append({"username": uname, "type": "inactive", "days": days_inactive})
+
+        exercise_stats = []
+        for ex in exercises_list:
+            ex_id = ex['id']
+            ex_logs = [l for l in logs if l['exercise_id'] == ex_id]
+            attempts = [l for l in ex_logs if l['status'] in ('success', 'failure')]
+            attempters = {l['user_id'] for l in attempts}
+            successes_by_user = {l['user_id'] for l in ex_logs if l['status'] == 'success'}
+            ai_reqs = len([l for l in ex_logs if l['status'] == 'ai_request'])
+
+            success_rate = (len(successes_by_user) / len(attempters) * 100) if attempters else 0.0
+            avg_attempts = (len(attempts) / len(attempters)) if attempters else 0.0
+            avg_ai = (ai_reqs / len(attempters)) if attempters else 0.0
+
+            exercise_stats.append({
+                "exercise_id": ex_id,
+                "titre": ex['titre'],
+                "niveau": ex['niveau'],
+                "nb_attempters": len(attempters),
+                "success_rate": round(success_rate, 1),
+                "avg_attempts": round(avg_attempts, 1),
+                "avg_ai_requests": round(avg_ai, 1)
+            })
+
+        error_counts = {}
+        for log in logs:
+            if log.get('error_type'):
+                error_counts[log['error_type']] = error_counts.get(log['error_type'], 0) + 1
+        error_distribution = sorted(
+            [{"type": k, "count": v} for k, v in error_counts.items()],
+            key=lambda x: x['count'], reverse=True
+        )
+
+        nb_consenting = len([s for s in students if s['consent_given']])
+
+        return {
+            "students": students,
+            "exercises": [{"id": ex['id'], "titre": ex['titre'], "niveau": ex['niveau']} for ex in exercises_list],
+            "heatmap": heatmap,
+            "alerts": alerts,
+            "exercise_stats": exercise_stats,
+            "error_distribution": error_distribution,
+            "consent_summary": {"given": nb_consenting, "total": len(students)}
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get('/api/metrics/{student_id}', response_model=StudentMetrics)
 def get_student_metrics(student_id: str, current_user: AuthUser = Depends(get_current_user)):
@@ -71,20 +193,21 @@ def get_student_metrics(student_id: str, current_user: AuthUser = Depends(get_cu
         else:
             success_rate_no_ai = 0.0
 
+        attempted_ex_ids = {log['exercise_id'] for log in logs if log['status'] in ('success', 'failure')}
         total_ai_reqs = len([log for log in logs if log['status'] == 'ai_request'])
-        avg_ai_requests = total_ai_reqs / total_exercises if total_exercises > 0 else 0
+        avg_ai_requests = total_ai_reqs / len(attempted_ex_ids) if attempted_ex_ids else 0
 
         badges_declic = 0
-        sessions = {}
+        ex_sessions = {}
         for log in logs:
-            sid = log['session_id']
-            if sid not in sessions:
-                sessions[sid] = []
-            sessions[sid].append(log)
+            key = log['exercise_id']
+            if key not in ex_sessions:
+                ex_sessions[key] = []
+            ex_sessions[key].append(log)
 
-        for sid, s_logs in sessions.items():
-            has_ai = any(l['status'] == 'ai_request' for l in s_logs)
-            has_success = any(l['status'] == 'success' for l in s_logs)
+        for ex_id, ex_logs in ex_sessions.items():
+            has_ai = any(l['status'] == 'ai_request' for l in ex_logs)
+            has_success = any(l['status'] == 'success' for l in ex_logs)
             if has_ai and has_success:
                 badges_declic += 1
 
@@ -110,8 +233,45 @@ def get_student_metrics(student_id: str, current_user: AuthUser = Depends(get_cu
             key=lambda x: x['count'], reverse=True
         )[:3]
 
+        NUM_WEEKS = 8
+        now_dt = datetime.now(timezone.utc)
+        current_week_start = now_dt.date() - timedelta(days=now_dt.weekday())
+        week_starts = [current_week_start - timedelta(weeks=w) for w in range(NUM_WEEKS - 1, -1, -1)]
+
+        def _parse_dt(raw):
+            dt = datetime.fromisoformat(str(raw).replace('Z', '+00:00')) if isinstance(raw, str) else raw
+            return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
+
+        buckets = [{"completed": 0, "completed_no_ai": 0, "attempts": 0, "ai_requests": 0} for _ in week_starts]
+
+        for log in logs:
+            log_date = _parse_dt(log['created_at']).date()
+            idx = bisect.bisect_right(week_starts, log_date) - 1
+            if idx < 0:
+                continue
+            bucket = buckets[idx]
+            if log['status'] == 'success':
+                bucket['completed'] += 1
+                bucket['attempts'] += 1
+                if log['exercise_id'] not in ai_req_ex_ids:
+                    bucket['completed_no_ai'] += 1
+            elif log['status'] == 'failure':
+                bucket['attempts'] += 1
+            elif log['status'] == 'ai_request':
+                bucket['ai_requests'] += 1
+
+        trends = [
+            {
+                "week_start": ws.isoformat(),
+                "exercises_completed": b['completed'],
+                "success_rate_no_ai": round(b['completed_no_ai'] / b['completed'] * 100, 1) if b['completed'] > 0 else 0.0,
+                "ai_requests_per_attempt": round(b['ai_requests'] / b['attempts'], 1) if b['attempts'] > 0 else 0.0,
+                "has_activity": b['attempts'] > 0 or b['ai_requests'] > 0
+            }
+            for ws, b in zip(week_starts, buckets)
+        ]
+
         if logs:
-            from datetime import datetime, timedelta, timezone
             now = datetime.now(timezone.utc)
             one_week_ago = now - timedelta(days=7)
 
@@ -137,13 +297,16 @@ def get_student_metrics(student_id: str, current_user: AuthUser = Depends(get_cu
             )
             streak = 0
             if dates:
-                streak = 1
-                for i in range(len(dates) - 1):
-                    diff = (dates[i] - dates[i + 1]).days
-                    if diff == 1:
-                        streak += 1
-                    else:
-                        break
+                today = now.date()
+                most_recent = dates[0]
+                if (today - most_recent).days <= 1:
+                    streak = 1
+                    for i in range(len(dates) - 1):
+                        diff = (dates[i] - dates[i + 1]).days
+                        if diff == 1:
+                            streak += 1
+                        else:
+                            break
         else:
             streak = 0
             weekly_practice_time = 0
@@ -168,7 +331,8 @@ def get_student_metrics(student_id: str, current_user: AuthUser = Depends(get_cu
             "engagement": {
                 "streak": streak,
                 "weekly_practice_time": weekly_practice_time
-            }
+            },
+            "trends": trends
         }
     except HTTPException:
         raise
@@ -182,9 +346,9 @@ def log_metric_event(event: LogEvent, current_user: AuthUser = Depends(get_curre
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    """INSERT INTO user_progress (user_id, exercise_id, status, error_type, session_id, duration)
-                       VALUES (%s, %s, %s, %s, %s, %s)""",
-                    (current_user.username, event.exercise_id, event.status, event.error_type, event.session_id, event.duration)
+                    """INSERT INTO user_progress (user_id, exercise_id, status, error_type, session_id, duration, code)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                    (current_user.username, event.exercise_id, event.status, event.error_type, event.session_id, event.duration, event.code)
                 )
         return {"success": True}
     except Exception as e:

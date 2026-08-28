@@ -145,6 +145,9 @@ class AgentState(TypedDict):
     res_test : str
     is_assistant : bool
     admin_id : int
+    user_id : str
+    exercise_id : int | None
+    session_id : str
 
 def routeur(state : AgentState):
     if state['res_test'] == "1" or state['res_test'] == "0":
@@ -152,17 +155,35 @@ def routeur(state : AgentState):
     else :
         return "bilan"
 
+def save_interaction(state: AgentState, interaction_type: str, student_code: str, response: str):
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """INSERT INTO ai_interactions
+                       (user_id, exercise_id, session_id, interaction_type, student_code, ai_response, model)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                    (state['user_id'], state.get('exercise_id'), state['session_id'],
+                     interaction_type, student_code, response, llm.model_name)
+                )
+    except Exception as e:
+        import logging
+        logging.error(f"Failed to persist AI interaction: {e}")
+
 def aide(state : AgentState):
     if not state['is_assistant']:
         return {"messages": [AIMessage(content="")]}
+    student_code = state['messages'][-1].content
     llm_aide = prompt_aide | llm | StrOutputParser()
-    response = llm_aide.invoke({'enonce': state['enonce'], 'code' : state['messages'][-1].content, 'historique' : history(state['messages'])})
+    response = llm_aide.invoke({'enonce': state['enonce'], 'code' : student_code, 'historique' : history(state['messages'])})
+    save_interaction(state, "aide", student_code, response)
     return {"messages": [AIMessage(content=response)]}
 
 def bilan(state : AgentState):
     llm_bilan = prompt_bilan | llm | StrOutputParser()
     descr_exo = get_descr_exo(state['admin_id'])
     response = llm_bilan.invoke({'enonce': state['enonce'], 'historique' : history(state['messages']), 'mot_cle': descr_exo})
+    save_interaction(state, "bilan", state['messages'][-1].content, response)
     return {"messages": [AIMessage(content=response)]}
 
 memory = MemorySaver()

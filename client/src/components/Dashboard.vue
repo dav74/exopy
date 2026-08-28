@@ -3,6 +3,8 @@ import { ref, onMounted, computed } from "vue";
 import { useThemeStore } from "../stores/themeStore";
 import { storeToRefs } from "pinia";
 import { API_URL } from "../config.js";
+import TrendSparkline from "./TrendSparkline.vue";
+import MetricsHelpModal from "./MetricsHelpModal.vue";
 
 const props = defineProps(["studentId"]);
 const themeStore = useThemeStore();
@@ -11,6 +13,7 @@ const { isDarkMode } = storeToRefs(themeStore);
 const stats = ref(null);
 const isLoading = ref(true);
 const error = ref(null);
+const showHelp = ref(false);
 
 const fetchMetrics = async () => {
   isLoading.value = true;
@@ -41,6 +44,32 @@ const getLevelColor = (level) => {
   };
   return colors[level] || 'text-zinc-500 bg-zinc-500/10 border-zinc-500/20';
 };
+
+const weekLabel = (iso) => {
+  const [, month, day] = iso.split('-');
+  return `${day}/${month}`;
+};
+
+const trends = computed(() => stats.value?.trends || []);
+const hasTrendActivity = computed(() => trends.value.some(t => t.has_activity));
+
+const completedTrend = computed(() => trends.value.map(t => ({ label: weekLabel(t.week_start), value: t.exercises_completed, hasActivity: t.has_activity })));
+const successTrend = computed(() => trends.value.map(t => ({ label: weekLabel(t.week_start), value: t.success_rate_no_ai, hasActivity: t.has_activity })));
+const aiTrend = computed(() => trends.value.map(t => ({ label: weekLabel(t.week_start), value: t.ai_requests_per_attempt, hasActivity: t.has_activity })));
+
+const autonomyMessage = computed(() => {
+  const active = trends.value.filter(t => t.has_activity);
+  if (active.length < 4) return null;
+  const mid = Math.floor(active.length / 2);
+  const avg = (arr) => arr.reduce((s, t) => s + t.ai_requests_per_attempt, 0) / arr.length;
+  const before = avg(active.slice(0, mid));
+  const after = avg(active.slice(mid));
+  if (before <= 0) return null;
+  const change = Math.round(((before - after) / before) * 100);
+  if (change >= 15) return `Tu sollicites l'assistant ${change} % moins souvent qu'en début de période. Continue comme ça !`;
+  if (change <= -15) return `Tu sollicites un peu plus l'assistant ces derniers temps : normal si les exercices se corsent.`;
+  return null;
+});
 </script>
 
 <template>
@@ -53,8 +82,20 @@ const getLevelColor = (level) => {
       {{ error }}
     </div>
 
-    <div v-else-if="stats" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 xl:gap-6">
-      
+    <div v-if="stats" class="flex justify-end">
+      <button
+        @click="showHelp = true"
+        :class="['flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-sm transition-all hover:scale-105', isDarkMode ? 'bg-zinc-900/50 border-zinc-800 text-zinc-300 hover:text-white' : 'bg-white border-zinc-200 text-zinc-500 hover:text-zinc-800']"
+      >
+        <span :class="['flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-black', isDarkMode ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-500/10 text-blue-600']">?</span>
+        Comprendre ces statistiques
+      </button>
+    </div>
+
+    <MetricsHelpModal v-if="showHelp" :isDarkMode="isDarkMode" @close="showHelp = false" />
+
+    <div v-if="stats" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 xl:gap-6">
+
       <!-- Section Progression -->
       <div :class="['border p-8 rounded-[2rem] shadow-sm transition-all group', isDarkMode ? 'bg-zinc-900/50 border-zinc-800 dark:shadow-xl hover:shadow-blue-500/5' : 'bg-white border-zinc-200 hover:shadow-blue-500/5']">
         <div class="flex justify-between items-start mb-6">
@@ -181,6 +222,28 @@ const getLevelColor = (level) => {
         </div>
       </div>
 
+    </div>
+
+    <!-- Section Tendances -->
+    <div v-if="stats && hasTrendActivity" :class="['border p-8 rounded-[2rem] shadow-sm transition-all', isDarkMode ? 'bg-zinc-900/50 border-zinc-800 dark:shadow-xl' : 'bg-white border-zinc-200']">
+      <h3 class="text-xl font-bold tracking-tight text-zinc-800 dark:text-zinc-100 flex items-center gap-2 mb-2">
+        <span class="text-blue-500">📈</span> Tendances (8 dernières semaines)
+      </h3>
+      <p v-if="autonomyMessage" class="text-sm font-medium text-emerald-600 dark:text-emerald-400 mb-6 italic">{{ autonomyMessage }}</p>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mt-4">
+        <div>
+          <p class="text-[10px] font-black uppercase tracking-widest mb-3 text-zinc-500 dark:text-zinc-400">Exercices terminés</p>
+          <TrendSparkline :points="completedTrend" color="blue" unit=" exo(s)" />
+        </div>
+        <div>
+          <p class="text-[10px] font-black uppercase tracking-widest mb-3 text-zinc-500 dark:text-zinc-400">Réussite sans IA</p>
+          <TrendSparkline :points="successTrend" color="emerald" unit="%" />
+        </div>
+        <div>
+          <p class="text-[10px] font-black uppercase tracking-widest mb-3 text-zinc-500 dark:text-zinc-400">Aide IA / tentative</p>
+          <TrendSparkline :points="aiTrend" color="amber" unit=" req." />
+        </div>
+      </div>
     </div>
   </div>
 </template>

@@ -14,6 +14,7 @@ class RequestExercise(BaseModel):
     code: str
     res_test: str
     is_assistant: bool
+    exercise_id: int | None = None
 
 class LogEvent(BaseModel):
     exercise_id: int
@@ -21,6 +22,7 @@ class LogEvent(BaseModel):
     error_type: str | None = None
     session_id: str
     duration: int | None = None
+    code: str | None = None
 
 class ExerciseCreate(BaseModel):
     titre: str
@@ -67,11 +69,19 @@ class EngagementMetrics(BaseModel):
     streak: int
     weekly_practice_time: int
 
+class WeeklyTrendPoint(BaseModel):
+    week_start: str
+    exercises_completed: int
+    success_rate_no_ai: float
+    ai_requests_per_attempt: float
+    has_activity: bool
+
 class StudentMetrics(BaseModel):
     progression: ProgressionMetrics
     autonomie: AutonomieMetrics
     qualite: QualiteMetrics
     engagement: EngagementMetrics
+    trends: list[WeeklyTrendPoint] = []
 
 class UserInfo(BaseModel):
     username: str
@@ -79,28 +89,41 @@ class UserInfo(BaseModel):
     prenom: str | None = None
     ai_enabled: bool = False
     role: str = "student"
+    must_change_password: bool = False
+    consent_given: bool = False
+
+class ConsentUpdate(BaseModel):
+    consent_given: bool
 
 class UserCreate(BaseModel):
     username: str
-    password: str
     nom: str | None = None
     prenom: str | None = None
 
 class UserUpdate(BaseModel):
+    username: str | None = None
     nom: str | None = None
     prenom: str | None = None
 
 class UserPasswordReset(BaseModel):
     username: str
-    new_password: str
 
 class AdminCreate(BaseModel):
     username: str
-    password: str
+    nom: str | None = None
+    prenom: str | None = None
+    etablissement: str | None = None
+    email: str | None = None
+
+class AdminUpdate(BaseModel):
+    username: str
+    nom: str | None = None
+    prenom: str | None = None
+    etablissement: str | None = None
+    email: str | None = None
 
 class AdminPasswordReset(BaseModel):
     admin_id: int
-    new_password: str
 
 class AdminPasswordChange(BaseModel):
     current_password: str
@@ -109,7 +132,12 @@ class AdminPasswordChange(BaseModel):
 class AdminOut(BaseModel):
     id: int
     username: str
+    nom: str = ""
+    prenom: str = ""
+    etablissement: str | None = None
+    email: str | None = None
     is_super: bool
+    must_change_password: bool = False
     nb_students: int = 0
     nb_exercises: int = 0
     nb_ai_requests: int = 0

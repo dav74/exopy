@@ -23,6 +23,3 @@ langgraph==0.6.6
 # Utilities
 python-dotenv==1.0.1
 httpx==0.28.1
-
-# Scripts & PDF Generation
-fpdf2==2.8.2

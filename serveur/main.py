@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 import logging
 
-from routers import auth, exercises, llm, metrics, admin_mgmt
+from routers import auth, exercises, llm, metrics, admin_mgmt, research
 from core.database import get_db
 from passlib.hash import bcrypt
 import psycopg2.extras
@@ -36,6 +36,7 @@ app.include_router(exercises.router)
 app.include_router(llm.router)
 app.include_router(metrics.router)
 app.include_router(admin_mgmt.router)
+app.include_router(research.router)
 
 @app.on_event("startup")
 def startup():
@@ -47,30 +48,99 @@ def _migrate():
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'admins')")
-                if cur.fetchone()[0]:
-                    return
-
-                cur.execute("""
-                    CREATE TABLE admins (
-                        id SERIAL PRIMARY KEY,
-                        username VARCHAR(255) UNIQUE NOT NULL,
-                        password_hash VARCHAR(255) NOT NULL,
-                        openrouter_api_key VARCHAR(512) DEFAULT NULL,
-                        is_super BOOLEAN DEFAULT FALSE
-                    )
-                """)
-
-                cur.execute("SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'admin_id')")
                 if not cur.fetchone()[0]:
-                    cur.execute("ALTER TABLE users ADD COLUMN admin_id INTEGER REFERENCES admins(id) ON DELETE CASCADE")
-                    cur.execute("CREATE INDEX IF NOT EXISTS idx_users_admin_id ON users(admin_id)")
+                    cur.execute("""
+                        CREATE TABLE admins (
+                            id SERIAL PRIMARY KEY,
+                            username VARCHAR(255) UNIQUE NOT NULL,
+                            password_hash VARCHAR(255) NOT NULL,
+                            openrouter_api_key VARCHAR(512) DEFAULT NULL,
+                            is_super BOOLEAN DEFAULT FALSE
+                        )
+                    """)
 
-                cur.execute("SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'exercises' AND column_name = 'admin_id')")
+                    cur.execute("SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'admin_id')")
+                    if not cur.fetchone()[0]:
+                        cur.execute("ALTER TABLE users ADD COLUMN admin_id INTEGER REFERENCES admins(id) ON DELETE CASCADE")
+                        cur.execute("CREATE INDEX IF NOT EXISTS idx_users_admin_id ON users(admin_id)")
+
+                    cur.execute("SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'exercises' AND column_name = 'admin_id')")
+                    if not cur.fetchone()[0]:
+                        cur.execute("ALTER TABLE exercises ADD COLUMN admin_id INTEGER REFERENCES admins(id) ON DELETE CASCADE")
+                        cur.execute("CREATE INDEX IF NOT EXISTS idx_exercises_admin_id ON exercises(admin_id)")
+
+                    logging.info("Database migration: admins table and admin_id columns created.")
+
+                cur.execute("SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'must_change_password')")
                 if not cur.fetchone()[0]:
-                    cur.execute("ALTER TABLE exercises ADD COLUMN admin_id INTEGER REFERENCES admins(id) ON DELETE CASCADE")
-                    cur.execute("CREATE INDEX IF NOT EXISTS idx_exercises_admin_id ON exercises(admin_id)")
+                    cur.execute("ALTER TABLE users ADD COLUMN must_change_password BOOLEAN NOT NULL DEFAULT FALSE")
+                    logging.info("Database migration: must_change_password column added to users.")
 
-                logging.info("Database migration: admins table and admin_id columns created.")
+                cur.execute("SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'admins' AND column_name = 'must_change_password')")
+                if not cur.fetchone()[0]:
+                    cur.execute("ALTER TABLE admins ADD COLUMN must_change_password BOOLEAN NOT NULL DEFAULT FALSE")
+                    logging.info("Database migration: must_change_password column added to admins.")
+
+                cur.execute("SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'admins' AND column_name = 'nom')")
+                if not cur.fetchone()[0]:
+                    cur.execute("ALTER TABLE admins ADD COLUMN nom VARCHAR(255) NOT NULL DEFAULT ''")
+                    cur.execute("ALTER TABLE admins ADD COLUMN prenom VARCHAR(255) NOT NULL DEFAULT ''")
+                    cur.execute("ALTER TABLE admins ADD COLUMN etablissement VARCHAR(255) DEFAULT NULL")
+                    cur.execute("ALTER TABLE admins ADD COLUMN email VARCHAR(255) DEFAULT NULL")
+                    logging.info("Database migration: nom/prenom/etablissement/email columns added to admins.")
+
+                cur.execute("SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'user_progress' AND column_name = 'code')")
+                if not cur.fetchone()[0]:
+                    cur.execute("ALTER TABLE user_progress ADD COLUMN code TEXT")
+                    logging.info("Database migration: code column added to user_progress.")
+
+                cur.execute("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'ai_interactions')")
+                if not cur.fetchone()[0]:
+                    cur.execute("""
+                        CREATE TABLE ai_interactions (
+                            id BIGSERIAL PRIMARY KEY,
+                            user_id VARCHAR(255) NOT NULL,
+                            exercise_id INTEGER REFERENCES exercises(id) ON DELETE CASCADE,
+                            session_id VARCHAR(255) NOT NULL,
+                            interaction_type VARCHAR(20) NOT NULL,
+                            student_code TEXT,
+                            ai_response TEXT NOT NULL,
+                            model VARCHAR(255),
+                            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                        )
+                    """)
+                    cur.execute("CREATE INDEX IF NOT EXISTS idx_ai_interactions_user_id ON ai_interactions(user_id)")
+                    cur.execute("CREATE INDEX IF NOT EXISTS idx_ai_interactions_exercise_id ON ai_interactions(exercise_id)")
+                    cur.execute("CREATE INDEX IF NOT EXISTS idx_ai_interactions_session_id ON ai_interactions(session_id)")
+                    logging.info("Database migration: ai_interactions table created.")
+
+                cur.execute("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'research_pseudonyms')")
+                if not cur.fetchone()[0]:
+                    cur.execute("""
+                        CREATE TABLE research_pseudonyms (
+                            id SERIAL PRIMARY KEY,
+                            user_id VARCHAR(255) UNIQUE NOT NULL REFERENCES users(username) ON DELETE CASCADE,
+                            pseudo_id VARCHAR(64) UNIQUE NOT NULL,
+                            admin_id INTEGER NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
+                            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                        )
+                    """)
+                    cur.execute("CREATE INDEX IF NOT EXISTS idx_research_pseudonyms_admin_id ON research_pseudonyms(admin_id)")
+                    logging.info("Database migration: research_pseudonyms table created.")
+
+                cur.execute("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'research_consent')")
+                if not cur.fetchone()[0]:
+                    cur.execute("""
+                        CREATE TABLE research_consent (
+                            id SERIAL PRIMARY KEY,
+                            user_id VARCHAR(255) UNIQUE NOT NULL REFERENCES users(username) ON DELETE CASCADE,
+                            consent_given BOOLEAN NOT NULL DEFAULT FALSE,
+                            recorded_by VARCHAR(255),
+                            consented_at TIMESTAMP WITH TIME ZONE,
+                            revoked_at TIMESTAMP WITH TIME ZONE
+                        )
+                    """)
+                    logging.info("Database migration: research_consent table created.")
     except Exception as e:
         logging.error(f"Migration error: {e}")
 

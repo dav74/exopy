@@ -35,9 +35,12 @@ def request_llm(req: RequestExercise, current_user: AuthUser = Depends(get_curre
             "messages": req.code,
             "res_test": req.res_test,
             "is_assistant": req.is_assistant,
-            "admin_id": admin_id
-        }, 
-        config, 
+            "admin_id": admin_id,
+            "user_id": current_user.username,
+            "exercise_id": req.exercise_id,
+            "session_id": req.session
+        },
+        config,
         stream_mode="values"
     )
     logging.info(rep['messages'][-1].content)

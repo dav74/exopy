@@ -5,8 +5,10 @@ import Code from "./components/Code.vue";
 import Assistant from "./components/Assistant.vue";
 import SuccessWindow from "./components/SuccessWindow.vue";
 import Connexion from "./components/Connexion.vue";
+import ChangePasswordModal from "./components/ChangePasswordModal.vue";
 import Bilan from "./components/Bilan.vue";
 import AdminPanel from "./components/AdminPanel.vue";
+import SuperAdminPanel from "./components/SuperAdminPanel.vue";
 import { ref, onMounted, onUnmounted, nextTick } from "vue";
 import { useAuthStore } from "./stores/authStore";
 import { useExerciseStore } from "./stores/exerciseStore";
@@ -18,7 +20,7 @@ const authStore = useAuthStore();
 const exerciseStore = useExerciseStore();
 const themeStore = useThemeStore();
 
-const { id_user, userFullInfo, assistantIsOn, isAdmin, aiEnabled } = storeToRefs(authStore);
+const { id_user, userFullInfo, assistantIsOn, isAdmin, isSuperAdmin, aiEnabled, mustChangePassword } = storeToRefs(authStore);
 const { selectedItemId, exercise, code, resTest, testCode, visibleTests, errorCode } = storeToRefs(exerciseStore);
 const { isDarkMode } = storeToRefs(themeStore);
 const { toggleTheme } = themeStore;
@@ -51,13 +53,13 @@ const uuidv4 = () => {
 
 const session_id = uuidv4();
 
-const logEvent = async (status, errorType = null) => {
-  if (!selectedItemId.value) return;
-  
+const logEvent = async (status, errorType = null, overrideExerciseId = null) => {
+  const exerciseId = overrideExerciseId || selectedItemId.value;
+  if (!exerciseId) return;
+
   let duration = null;
   if (exerciseStartTime.value) {
     duration = Math.floor((Date.now() - exerciseStartTime.value) / 1000);
-    // Re-initialize for the next sequence (e.g., failure -> reflection -> next attempt)
     exerciseStartTime.value = Date.now();
   }
 
@@ -70,11 +72,12 @@ const logEvent = async (status, errorType = null) => {
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
-        exercise_id: selectedItemId.value,
+        exercise_id: exerciseId,
         status: status,
         error_type: errorType,
         session_id: session_id,
-        duration: duration
+        duration: duration,
+        code: status === "success" || status === "failure" ? code.value : null
       }),
     });
   } catch (err) {
@@ -160,6 +163,7 @@ const addTestWithDelay = (test, index) => {
 };
 
 const callAssistant = async () => {
+  const capturedExerciseId = selectedItemId.value;
   if (!aiEnabled.value) {
     if (resTest.value == "2") {
       bilanAI.value = "";
@@ -195,6 +199,7 @@ const callAssistant = async () => {
         code: code.value,
         res_test: resTest.value,
         is_assistant: assistantIsOn.value,
+        exercise_id: capturedExerciseId,
       }),
     });
     if (!callAI.ok) {
@@ -224,7 +229,7 @@ const callAssistant = async () => {
   } finally {
     isAssistantLoading.value = false;
   }
-  logEvent("ai_request");
+  logEvent("ai_request", null, capturedExerciseId);
 };
 
 const handleCodeUpdate = async (co) => {
@@ -285,12 +290,19 @@ const handleCodeUpdate = async (co) => {
   }
 };
 
-const openBilan = () => { showBilan.value = true; };
+const openBilan = () => { if (!isAdmin.value) showBilan.value = true; };
 const closeBilan = () => { showBilan.value = false; };
 
 const connect_id = (user) => {
   authStore.setUserId(user);
   fetchProfile();
+};
+
+const showPasswordChange = ref(false);
+
+const onPasswordChanged = () => {
+  mustChangePassword.value = false;
+  showPasswordChange.value = false;
 };
 
 const assitant = (v) => {
@@ -299,13 +311,15 @@ const assitant = (v) => {
 </script>
 
 <template>
-  <div :class="['h-screen flex flex-col font-sans transition-colors duration-300', isDarkMode ? 'bg-zinc-950' : 'bg-white']">
+  <SuperAdminPanel v-if="id_user !== '' && isSuperAdmin" />
+
+  <div v-else :class="['h-screen flex flex-col font-sans transition-colors duration-300', isDarkMode ? 'bg-zinc-950' : 'bg-white']">
     <!-- Top Header Bar -->
     <header v-if="id_user !== ''" :class="['flex justify-between items-center px-6 py-2 z-10 backdrop-blur-md transition-colors', isDarkMode ? 'bg-zinc-900/80' : 'bg-white/80']">
       <div class="flex items-center gap-2">
         <img src="./assets/logo.png" alt="EXOPY" class="h-8 px-10 md:h-10 hover:scale-105 transition-transform" />
       </div>
-      
+
       <div class="flex items-center gap-4">
         <button
           v-if="isAdmin"
@@ -317,7 +331,15 @@ const assitant = (v) => {
           </svg>
           Panel admin
         </button>
-        
+
+        <button
+          @click="showPasswordChange = true"
+          :class="['p-2 rounded-xl transition-all border shadow-sm', isDarkMode ? 'bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700 border-zinc-700/50' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 border-zinc-200']"
+          title="Modifier le mot de passe"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
+        </button>
+
         <button
           @click="toggleTheme"
           :class="['p-2 rounded-xl transition-all border shadow-sm', isDarkMode ? 'bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700 border-zinc-700/50' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 border-zinc-200']"
@@ -335,7 +357,7 @@ const assitant = (v) => {
 
         <span
           @click="openBilan"
-          :class="['font-medium hover:text-blue-500 dark:hover:text-blue-400 transition-colors hover:cursor-pointer flex items-center gap-2 px-2', isDarkMode ? 'text-zinc-200' : 'text-zinc-600']"
+          :class="['font-medium transition-colors flex items-center gap-2 px-2', !isAdmin ? 'hover:text-blue-500 dark:hover:text-blue-400 hover:cursor-pointer' : '', isDarkMode ? 'text-zinc-200' : 'text-zinc-600']"
         >
           <div :class="['w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border', isDarkMode ? 'bg-zinc-700 text-zinc-300 border-zinc-600' : 'bg-zinc-100 text-zinc-500 border-zinc-200']">
             {{ (userFullInfo.prenom || id_user).substring(0, 2).toUpperCase() }}
@@ -438,9 +460,17 @@ const assitant = (v) => {
     </div>
     
     <!-- Admin Panel Overlay -->
-    <AdminPanel 
-      v-if="showAdmin" 
-      @close="showAdmin = false" 
+    <AdminPanel
+      v-if="showAdmin"
+      @close="showAdmin = false"
+    />
+
+    <!-- Password Change Overlay (forced on first login, or opened voluntarily) -->
+    <ChangePasswordModal
+      v-if="id_user !== '' && (mustChangePassword || showPasswordChange)"
+      :closable="!mustChangePassword"
+      @changed="onPasswordChanged"
+      @close="showPasswordChange = false"
     />
 
     <!-- Overlays -->
