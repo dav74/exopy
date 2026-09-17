@@ -54,7 +54,7 @@ const selectedStudent = ref(null);
 const isUsersLoading = ref(false);
 const isEditingUser = ref(false);
 const isCreatingUser = ref(false);
-const userFormData = ref({ username: "", nom: "", prenom: "" });
+const userFormData = ref({ username: "", nom: "", prenom: "", ai_disabled: false });
 const editingOriginalUsername = ref("");
 const newUserFormData = ref({ username: "", nom: "", prenom: "" });
 const isUpdatingUser = ref(false);
@@ -214,7 +214,7 @@ const openUserEditForm = (user) => {
   isCreatingUser.value = false;
   selectedStudent.value = null;
   editingOriginalUsername.value = user.username;
-  userFormData.value = { username: user.username, nom: user.nom || "", prenom: user.prenom || "" };
+  userFormData.value = { username: user.username, nom: user.nom || "", prenom: user.prenom || "", ai_disabled: !!user.ai_disabled };
 };
 
 const openCreateUserForm = () => {
@@ -238,7 +238,7 @@ const submitUserForm = async () => {
     const res = await fetch(`${API_URL}/admin/users/${editingOriginalUsername.value}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ username: userFormData.value.username, nom: userFormData.value.nom, prenom: userFormData.value.prenom })
+      body: JSON.stringify({ username: userFormData.value.username, nom: userFormData.value.nom, prenom: userFormData.value.prenom, ai_disabled: userFormData.value.ai_disabled })
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -914,6 +914,17 @@ function parseExercisesFromText(text) {
                   <label class="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest ml-1">Nom</label>
                   <input v-model="userFormData.nom" type="text" class="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-4 text-zinc-800 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner">
                 </div>
+              </div>
+              <div class="flex items-center justify-between gap-4 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700">
+                <div>
+                  <p class="text-xs font-black text-zinc-700 dark:text-zinc-200 uppercase tracking-widest">Assistant IA</p>
+                  <p class="text-[11px] text-zinc-400 dark:text-zinc-500 mt-1">Désactive l'accès à l'assistant IA pour cet élève uniquement.</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                  <input type="checkbox" v-model="userFormData.ai_disabled" class="sr-only peer">
+                  <div class="w-11 h-6 bg-zinc-200 dark:bg-zinc-700 rounded-full peer peer-checked:bg-red-500 transition-colors"></div>
+                  <div class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
+                </label>
               </div>
               <div class="pt-8 border-t border-zinc-100 dark:border-zinc-700 space-y-4">
                 <button @click="resetUserPassword(editingOriginalUsername)" class="w-full py-4 rounded-2xl font-black text-[10px] text-amber-600 dark:text-amber-500 bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/10 transition-all uppercase tracking-widest shadow-sm">Réinitialiser le mot de passe</button>

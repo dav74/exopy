@@ -92,13 +92,13 @@ async def get_me(current_user: AuthUser = Depends(get_current_user)):
         with get_db() as conn:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
                 cur.execute(
-                    "SELECT username, nom, prenom, must_change_password FROM users WHERE username = %s",
+                    "SELECT username, nom, prenom, must_change_password, ai_disabled FROM users WHERE username = %s",
                     (current_user.username,)
                 )
                 row = cur.fetchone()
                 if not row:
                     return {"username": current_user.username, "nom": "", "prenom": "", "ai_enabled": False, "role": "student"}
-                return dict(row) | {"ai_enabled": ai_enabled, "role": "student"}
+                return dict(row) | {"ai_enabled": ai_enabled and not row['ai_disabled'], "role": "student"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -116,7 +116,7 @@ def change_own_password(payload: AdminPasswordChange, current_user: AuthUser = D
                         raise HTTPException(status_code=400, detail="Mot de passe actuel incorrect.")
                     cur.execute(
                         "UPDATE users SET password_hash = %s, must_change_password = FALSE WHERE username = %s",
-                        (bcrypt.using(rounds=6).hash(payload.new_password), current_user.username)
+                        (bcrypt.using(rounds=12).hash(payload.new_password), current_user.username)
                     )
                 else:
                     cur.execute("SELECT password_hash FROM admins WHERE id = %s", (current_user.admin_id,))
@@ -127,7 +127,7 @@ def change_own_password(payload: AdminPasswordChange, current_user: AuthUser = D
                         raise HTTPException(status_code=400, detail="Mot de passe actuel incorrect.")
                     cur.execute(
                         "UPDATE admins SET password_hash = %s, must_change_password = FALSE WHERE id = %s",
-                        (bcrypt.using(rounds=6).hash(payload.new_password), current_user.admin_id)
+                        (bcrypt.using(rounds=12).hash(payload.new_password), current_user.admin_id)
                     )
         return {"success": True, "message": "Mot de passe mis à jour."}
     except HTTPException:

@@ -1,9 +1,7 @@
 <script setup>
-import { ref, nextTick } from "vue";
-import MarkdownIt from "markdown-it";
+import { ref } from "vue";
 
-const props = defineProps(["msg", "title", "assistantOn"]);
-const markdown = new MarkdownIt();
+const props = defineProps(["title"]);
 const emit = defineEmits(["close"]);
 const isVisible = ref(false);
 const confetti = ref([]);
@@ -104,22 +102,7 @@ defineExpose({
           </h2>
 
           <div class="overflow-y-auto max-h-[40vh] custom-scrollbar mb-10 px-4">
-            <div
-              class="text-zinc-700 dark:text-zinc-100 text-xl leading-relaxed text-justify font-medium"
-              v-if="props.msg"
-              v-html="markdown.render(props.msg)"
-            ></div>
-            <div
-              v-else-if="props.assistantOn"
-              class="flex flex-col items-center justify-center py-8 gap-6"
-            >
-              <div class="premium-loader"></div>
-              <span class="text-blue-600 dark:text-zinc-400 font-black animate-pulse tracking-[0.3em] text-[10px] uppercase">Analyse IA en cours...</span>
-            </div>
-            <div
-              v-else
-              class="text-zinc-400 dark:text-zinc-500 italic text-lg font-medium"
-            >
+            <div class="text-zinc-400 dark:text-zinc-500 italic text-lg font-medium">
               Excellent travail ! Vous avez brillamment résolu l'exercice.
             </div>
           </div>
@@ -178,35 +161,6 @@ defineExpose({
   }
 }
 
-/* Premium Loader */
-.premium-loader {
-  width: 50px;
-  height: 50px;
-  border: 4px solid rgba(255, 255, 255, 0.1);
-  border-left-color: #3b82f6;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-:deep(p) {
-  margin-bottom: 1rem;
-}
-
-:deep(strong) {
-  color: #fbbf24;
-}
-
-:deep(code) {
-  background: rgba(255, 255, 255, 0.1);
-  padding: 0.2rem 0.4rem;
-  border-radius: 0.4rem;
-  font-family: monospace;
-  color: #a78bfa;
-}
 </style>
 
 <style>

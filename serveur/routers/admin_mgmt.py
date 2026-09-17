@@ -14,7 +14,7 @@ import unicodedata
 router = APIRouter(prefix="/admin", tags=["admin_mgmt"])
 
 def _hash_password(plain: str) -> str:
-    return bcrypt.using(rounds=6).hash(plain)
+    return bcrypt.using(rounds=12).hash(plain)
 
 def _remove_accents(text: str) -> str:
     if not text:
@@ -68,7 +68,7 @@ def list_users(admin: AuthUser = Depends(get_current_admin)):
         with get_db() as conn:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
                 cur.execute(
-                    """SELECT u.username, u.nom, u.prenom, u.must_change_password,
+                    """SELECT u.username, u.nom, u.prenom, u.must_change_password, u.ai_disabled,
                               COALESCE(rc.consent_given, FALSE) AS consent_given
                        FROM users u
                        LEFT JOIN research_consent rc ON rc.user_id = u.username
@@ -110,7 +110,7 @@ def set_research_consent(username: str, payload: ConsentUpdate, admin: AuthUser 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors de la mise à jour du consentement: {str(e)}")
 
-ALLOWED_USER_UPDATE_FIELDS = {"nom", "prenom", "username"}
+ALLOWED_USER_UPDATE_FIELDS = {"nom", "prenom", "username", "ai_disabled"}
 
 @router.put("/users/{username}")
 def update_user(username: str, payload: UserUpdate, admin: AuthUser = Depends(get_current_admin)):
@@ -133,8 +133,8 @@ def update_user(username: str, payload: UserUpdate, admin: AuthUser = Depends(ge
                         raise HTTPException(status_code=400, detail=f"L'identifiant '{new_username}' existe déjà.")
 
                 cur.execute(
-                    "UPDATE users SET nom = COALESCE(%s, nom), prenom = COALESCE(%s, prenom), username = COALESCE(%s, username) WHERE username = %s AND admin_id = %s",
-                    (update_data.get("nom"), update_data.get("prenom"), new_username, username, admin.admin_id)
+                    "UPDATE users SET nom = COALESCE(%s, nom), prenom = COALESCE(%s, prenom), username = COALESCE(%s, username), ai_disabled = COALESCE(%s, ai_disabled) WHERE username = %s AND admin_id = %s",
+                    (update_data.get("nom"), update_data.get("prenom"), new_username, update_data.get("ai_disabled"), username, admin.admin_id)
                 )
                 if cur.rowcount == 0:
                     raise HTTPException(status_code=404, detail=f"Utilisateur '{username}' non trouvé.")

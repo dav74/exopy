@@ -31,7 +31,6 @@ const msgAI = ref(
   "Vous devez choisir un exercice avant que je puisse vous aider.",
 );
 const codePlusTest = ref("");
-const bilanAI = ref("");
 let pyodide = null;
 let successWindowRef = ref(null);
 const showBilan = ref(false);
@@ -165,18 +164,12 @@ const addTestWithDelay = (test, index) => {
 const callAssistant = async () => {
   const capturedExerciseId = selectedItemId.value;
   if (!aiEnabled.value) {
-    if (resTest.value == "2") {
-      bilanAI.value = "";
-      msgAI.value = "Vous pouvez choisir un autre exercice";
-    } else {
-      msgAI.value = "L'assistant IA n'est pas configuré sur ce serveur.";
-    }
+    msgAI.value = "L'assistant IA n'est pas configuré sur ce serveur.";
     isAssistantLoading.value = false;
     return;
   }
-  
+
   msgAI.value = "";
-  bilanAI.value = "";
 
   if (!assistantIsOn.value) {
     isAssistantLoading.value = false;
@@ -206,23 +199,13 @@ const callAssistant = async () => {
       if (callAI.status === 401) {
         authStore.logout();
       } else if (callAI.status === 403) {
-        if (resTest.value == "2") {
-          bilanAI.value = "";
-          msgAI.value = "Vous pouvez choisir un autre exercice";
-        } else {
-          msgAI.value = "L'assistant IA est désactivé par votre administrateur.";
-        }
+        msgAI.value = "L'assistant IA est désactivé par votre administrateur.";
         isAssistantLoading.value = false;
         return;
       }
     }
     const data = await callAI.json();
-    if (resTest.value == "2") {
-      msgAI.value = "Vous pouvez choisir un autre exercice";
-      bilanAI.value = data.response;
-    } else {
-      msgAI.value = data.response;
-    }
+    msgAI.value = data.response;
   } catch (error) {
     msgAI.value =
       "Je suis désolé, mais suite à une erreur interne, je ne suis pas en mesure de t'aider pour le moment";
@@ -260,7 +243,9 @@ const handleCodeUpdate = async (co) => {
     } else {
       resTest.value = "1";
     }
-    callAssistant();
+    if (resTest.value !== "2") {
+      callAssistant();
+    }
     testCode.value.forEach((test, index) => {
       addTestWithDelay(test, index);
     });
@@ -474,11 +459,7 @@ const assitant = (v) => {
     />
 
     <!-- Overlays -->
-    <SuccessWindow
-      ref="successWindowRef"
-      :msg="bilanAI"
-      :assistant-on="assistantIsOn"
-    />
+    <SuccessWindow ref="successWindowRef" />
 
     <div
       v-if="id_user === ''"

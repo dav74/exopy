@@ -91,6 +91,7 @@ class UserInfo(BaseModel):
     role: str = "student"
     must_change_password: bool = False
     consent_given: bool = False
+    ai_disabled: bool = False
 
 class ConsentUpdate(BaseModel):
     consent_given: bool
@@ -104,6 +105,7 @@ class UserUpdate(BaseModel):
     username: str | None = None
     nom: str | None = None
     prenom: str | None = None
+    ai_disabled: bool | None = None
 
 class UserPasswordReset(BaseModel):
     username: str

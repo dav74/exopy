@@ -21,11 +21,22 @@ def _resolve_admin_id(current_user: AuthUser) -> int:
         raise HTTPException(status_code=403, detail="Accès non autorisé.")
     return admin_id
 
+def _check_ai_access(current_user: AuthUser):
+    if current_user.role != "student":
+        return
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT ai_disabled FROM users WHERE username = %s", (current_user.username,))
+            row = cur.fetchone()
+            if row and row[0]:
+                raise HTTPException(status_code=403, detail="Assistant IA désactivé pour cet élève.")
+
 @router.post('/request')
 def request_llm(req: RequestExercise, current_user: AuthUser = Depends(get_current_user)):
     if not os.getenv("OPENROUTER_API_KEY"):
         raise HTTPException(status_code=403, detail="Assistant IA non configuré sur le serveur.")
 
+    _check_ai_access(current_user)
     admin_id = _resolve_admin_id(current_user)
 
     config = {"configurable": {"thread_id": req.session}}

@@ -89,6 +89,11 @@ def _migrate():
                     cur.execute("ALTER TABLE admins ADD COLUMN email VARCHAR(255) DEFAULT NULL")
                     logging.info("Database migration: nom/prenom/etablissement/email columns added to admins.")
 
+                cur.execute("SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'ai_disabled')")
+                if not cur.fetchone()[0]:
+                    cur.execute("ALTER TABLE users ADD COLUMN ai_disabled BOOLEAN NOT NULL DEFAULT FALSE")
+                    logging.info("Database migration: ai_disabled column added to users.")
+
                 cur.execute("SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'user_progress' AND column_name = 'code')")
                 if not cur.fetchone()[0]:
                     cur.execute("ALTER TABLE user_progress ADD COLUMN code TEXT")
@@ -162,13 +167,13 @@ def _bootstrap_superadmin():
                     if not bcrypt.verify(admin_password, row['password_hash']):
                         cur.execute(
                             "UPDATE admins SET password_hash = %s WHERE id = %s",
-                            (bcrypt.using(rounds=6).hash(admin_password), super_admin_id)
+                            (bcrypt.using(rounds=12).hash(admin_password), super_admin_id)
                         )
                         logging.info("Super-admin password updated from environment variables.")
                 else:
                     cur.execute(
                         "INSERT INTO admins (username, password_hash, is_super) VALUES (%s, %s, TRUE) RETURNING id",
-                        (admin_username, bcrypt.using(rounds=6).hash(admin_password))
+                        (admin_username, bcrypt.using(rounds=12).hash(admin_password))
                     )
                     super_admin_id = cur.fetchone()['id']
                     logging.info(f"Super-admin '{admin_username}' created (id={super_admin_id}).")

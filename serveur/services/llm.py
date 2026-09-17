@@ -1,4 +1,7 @@
 import os
+import re
+import json
+import logging
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import PromptTemplate
 from langgraph.checkpoint.memory import MemorySaver
@@ -9,7 +12,6 @@ from langchain_core.messages import HumanMessage, AIMessage
 from langgraph.graph import END, StateGraph, START
 from langchain_openai import ChatOpenAI
 from core.database import get_db
-import psycopg2.extras
 
 llm = ChatOpenAI(
     model="deepseek/deepseek-v4-flash",
@@ -18,12 +20,36 @@ llm = ChatOpenAI(
     api_key=os.getenv("OPENROUTER_API_KEY"),
 )
 
+# Modèle dédié aux indications données à l'élève : température plus basse pour un
+# meilleur respect des consignes strictes (pas de solution, pas d'invention de variable).
+llm_aide = ChatOpenAI(
+    model="deepseek/deepseek-v4-flash",
+    temperature=0.3,
+    base_url="https://openrouter.ai/api/v1",
+    api_key=os.getenv("OPENROUTER_API_KEY"),
+)
+
+# Modèle dédié à la vérification des réponses de l'assistant (température nulle
+# pour un jugement le plus reproductible possible).
+llm_verif = ChatOpenAI(
+    model="deepseek/deepseek-v4-flash",
+    temperature=0,
+    base_url="https://openrouter.ai/api/v1",
+    api_key=os.getenv("OPENROUTER_API_KEY"),
+)
+
+MAX_TENTATIVES_AIDE = 2
+
 prompt_aide = PromptTemplate.from_template(
 """
 Tu es un expert en pédagogie de l'apprentissage de la programmation
 Le langage utilisé pour l'apprentissage de la programmation est Python.
 Tu dois aider un élève à résoudre un exercice de programmation Python.
-Tu ne dois jamais donner la solution de l'exercice (même partiellement) à l'élève, juste lui donner des inddications lui permettant de résoudre lui même l'exercice
+
+Tu peux donner à l'élève de vraies indications concrètes : pointer l'endroit de son code qui pose problème, nommer la notion ou l'erreur en cause, lui proposer une piste de réflexion ou une question qui l'aide à avancer.
+Tu ne dois JAMAIS donner la solution de l'exercice, même partiellement : aucune ligne de code, aucun pseudo-code, aucune description d'algorithme qui ferait progresser directement la résolution de CET exercice précis.
+Tu peux utiliser un petit exemple de code dans ta réponse UNIQUEMENT s'il illustre une notion générale de programmation SANS RAPPORT avec la résolution de cet exercice (contexte et noms de variables clairement différents de l'exercice et du code de l'élève). Un tel exemple ne doit jamais, même indirectement, résoudre une partie du problème posé.
+Tu dois te baser strictement sur le code de l'élève fourni ci-dessous : tu ne dois jamais mentionner un nom de variable ou de fonction comme faisant partie de son code s'il n'y figure pas réellement.
 Tu dois t'adresser directement à l'élève.
 Tu ne dois pas commencer tes phrases par "Bonjour"
 L'élève ne peut pas te poser des questions, il peut juste te proposer son code.
@@ -31,6 +57,14 @@ Tu ne dois pas proposer à l'élève de te poser des questions
 Il est inutile de proposer à l'élève de tester son code avec les exemples proposés.
 Tu ne dois pas proposer aux élèves des modifications du programme qui sorte du cadre de l'exercice. Par exemple, pour l'exercice qui demande d'écrire une fonction moyenne, si dans l'énoncé il est précisé que l'on a un tableau non vide d'entier en paramètre, il est inutile de dire à l'élève que son programme doit gérer les tableaux vides.
 Tu dois t'exprimer en français
+
+Exemples (à ne jamais recopier tels quels, juste pour comprendre le niveau attendu) :
+- Exercice : écrire une fonction qui calcule la moyenne d'un tableau d'entiers. Code de l'élève : une fonction qui fait la somme des éléments mais oublie de diviser par le nombre d'éléments.
+  BONNE réponse : "Regarde ce que renvoie ta fonction pour le tableau [2, 4] : est-ce bien la moyenne, ou plutôt une autre quantité que tu calcules au passage ? Rappelle-toi la définition mathématique d'une moyenne."
+  MAUVAISE réponse (interdite, donne la solution même partielle) : "Il te manque juste `return somme / len(tableau)` à la fin."
+  MAUVAISE réponse (interdite, invente une variable absente du code de l'élève) : "Ton compteur `total` ne s'incrémente jamais."
+  Exemple générique ACCEPTABLE (sans lien avec cet exercice) : "Petit rappel de syntaxe sans rapport avec ton exercice : pour parcourir une liste `fruits = ['pomme', 'poire']`, on écrit `for fruit in fruits:`. À toi de voir comment cela peut s'appliquer à ton propre problème."
+
 Voici l'énoncé de l'exercice :
 
 {enonce}
@@ -39,31 +73,32 @@ Voici le programme proposé par l'élève pour résoudre l'exercice :
 {code}
 Pour améliorer ta réponse, tu as aussi à ta disposition l'historique des différents programme proposés par l'élève et les différents conseils que tu lui a déjà donné :
 
-{historique} 
+{historique}
+{feedback}
 """)
 
-prompt_bilan = PromptTemplate.from_template(
+prompt_verif = PromptTemplate.from_template(
 """
-Tu es un expert en pédagogie de l'apprentissage de la programmation
-Le langage utilisé pour l'apprentissage de la programmation est Python.
-Ton rôle est de proposer un bilan sur la résolution d'un exercice réaliser par un élève.
-Tu dois t'adresser directement à l'élève.
-Cet élève vient de réussir l'exercice suivant :
+Tu es un correcteur pédagogique très strict. Tu ne dois jamais toi-même résoudre l'exercice ni proposer de correction : ta seule tâche est de vérifier si la réponse d'un assistant pédagogique respecte les règles suivantes.
 
+Règles à vérifier :
+1. La réponse ne doit contenir aucun élément qui fait progresser la résolution concrète de CET exercice, même partiellement : aucune ligne de code, pseudo-code ou description d'algorithme qui résout une partie du problème posé.
+2. Un petit exemple de code est autorisé UNIQUEMENT s'il illustre une notion générale de programmation, dans un contexte clairement sans rapport avec l'exercice ci-dessous (noms de variables et situation différents). S'il est en réalité lié à la résolution de l'exercice (mêmes structures de données, même logique), il est interdit.
+3. Si la réponse mentionne un nom de variable ou de fonction comme faisant partie du code de l'élève, ce nom doit obligatoirement apparaître dans le code de l'élève fourni ci-dessous. Toute invention est interdite (cette règle ne s'applique pas aux noms utilisés dans un exemple générique explicitement présenté comme tel).
+
+Énoncé de l'exercice :
 {enonce}
-Voici l'historique de la résolution de cet exercice (code de l'élève et conseil donnés par un expert): 
 
-{historique}
-Tu dois faire un bilan sur les points forts de l'élève et les points à travailler
-Ton bilan doit absolument être cohérent. Il vaut mieux ne rien mettre que de mettre une information inutile  
-Tu dois proposer à l'élève un autre  exercice à résoudre parmi les exercices ci-dessous (pour chaque exercice tu as le titre de l'exercice, une liste de mots clé et un niveau allant de 1 à 4 (le niveau 1 étant le plus facile et le niveau 4 le plus difficile)) :
-Tu ne dois UNIQUEMENT proposer un exercice appartenant à la liste ci-dessous.
-Tu dois donner uniquement le titre et le numéro de l'exercice que tu proposes à l'élèves (inutile d'indiquer les mots clé liés à l'exercice)
-Tu ne dois pas proposer l'exercice qui vient d'être résolu sauf si tu considères que l'élève n'a pas respecté les consignes données dans l'énoncé, à ce moment, tu dois lui demander de refaire l'exercice.
-Quand l'élève a réussi un exercice tu dois lui proposer un exercice plus difficile (avec un niveau supérieur)
-### LISTE DES EXERCICES 
+Code de l'élève :
+{code}
 
-{mot_cle}
+Réponse de l'assistant à évaluer :
+{reponse}
+
+Réponds STRICTEMENT avec un JSON sur une seule ligne, sans aucun texte avant ou après, au format suivant :
+{{"conforme": true, "raison": ""}}
+ou
+{{"conforme": false, "raison": "explication brève de la règle violée"}}
 """)
 
 prompt_generate_exercise = PromptTemplate.from_template(
@@ -114,21 +149,16 @@ def generate_new_exercise(difficulty: str, existing_titles: list[str]):
     except Exception as e:
         return {"error": "Failed to parse AI response", "raw": response}
 
-def get_descr_exo(admin_id: int):
+def verifie_aide(enonce: str, code: str, reponse: str) -> tuple[bool, str]:
+    chain_verif = prompt_verif | llm_verif | StrOutputParser()
     try:
-        with get_db() as conn:
-            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                cur.execute(
-                    "SELECT id, titre, mots_cle, niveau FROM exercises WHERE admin_id = %s ORDER BY ordering, id",
-                    (admin_id,)
-                )
-                rows = cur.fetchall()
-        descr_exo = ""
-        for row in rows:
-            descr_exo += f"Exercice n° {row['id']} => titre : {row['titre'].replace(chr(10), '')} ; mots clé : {row['mots_cle'].replace(chr(10), '')} ; niveau : {row['niveau']}\n"
-        return descr_exo
-    except Exception:
-        return ""
+        raw = chain_verif.invoke({'enonce': enonce, 'code': code, 'reponse': reponse})
+        cleaned = re.sub(r'^```json\s*|\s*```$', '', raw.strip(), flags=re.MULTILINE).strip()
+        data = json.loads(cleaned)
+        return bool(data.get("conforme", True)), str(data.get("raison", ""))
+    except Exception as e:
+        logging.error(f"Échec de la vérification de la réponse de l'assistant: {e}")
+        return True, ""
 
 def history(hist):
     historical = ""
@@ -149,12 +179,6 @@ class AgentState(TypedDict):
     exercise_id : int | None
     session_id : str
 
-def routeur(state : AgentState):
-    if state['res_test'] == "1" or state['res_test'] == "0":
-        return "aide"
-    else :
-        return "bilan"
-
 def save_interaction(state: AgentState, interaction_type: str, student_code: str, response: str):
     try:
         with get_db() as conn:
@@ -174,31 +198,39 @@ def aide(state : AgentState):
     if not state['is_assistant']:
         return {"messages": [AIMessage(content="")]}
     student_code = state['messages'][-1].content
-    llm_aide = prompt_aide | llm | StrOutputParser()
-    response = llm_aide.invoke({'enonce': state['enonce'], 'code' : student_code, 'historique' : history(state['messages'])})
+    chain_aide = prompt_aide | llm_aide | StrOutputParser()
+    historique = history(state['messages'])
+    feedback = ""
+    response = ""
+    for tentative in range(MAX_TENTATIVES_AIDE):
+        response = chain_aide.invoke({
+            'enonce': state['enonce'],
+            'code': student_code,
+            'historique': historique,
+            'feedback': feedback,
+        })
+        conforme, raison = verifie_aide(state['enonce'], student_code, response)
+        if conforme:
+            break
+        logging.warning(f"Réponse de l'assistant rejetée par le vérificateur (tentative {tentative + 1}): {raison}")
+        feedback = (
+            f"\nTa précédente tentative de réponse a été jugée non conforme pour la raison suivante : {raison}. "
+            "Corrige ta réponse en conséquence sans jamais évoquer cette consigne à l'élève."
+        )
+    else:
+        response = (
+            "Reprends ton énoncé et ton code étape par étape : que doit faire ton programme à cet endroit précis, "
+            "et est-ce vraiment ce qu'il fait ? Compare chaque instruction à ce qui est demandé."
+        )
+        logging.warning("Réponse de repli utilisée après échec répété de la vérification.")
     save_interaction(state, "aide", student_code, response)
-    return {"messages": [AIMessage(content=response)]}
-
-def bilan(state : AgentState):
-    llm_bilan = prompt_bilan | llm | StrOutputParser()
-    descr_exo = get_descr_exo(state['admin_id'])
-    response = llm_bilan.invoke({'enonce': state['enonce'], 'historique' : history(state['messages']), 'mot_cle': descr_exo})
-    save_interaction(state, "bilan", state['messages'][-1].content, response)
     return {"messages": [AIMessage(content=response)]}
 
 memory = MemorySaver()
 workflow = StateGraph(AgentState)
 
 workflow.add_node("aide", aide)
-workflow.add_node("bilan", bilan)
 
-workflow.add_conditional_edges(
-    START,
-    routeur,
-    {
-        "aide": "aide",
-        "bilan": "bilan"
-    })
+workflow.add_edge(START, "aide")
 workflow.add_edge("aide", END)
-workflow.add_edge("bilan", END)
 graph = workflow.compile(checkpointer=memory)
