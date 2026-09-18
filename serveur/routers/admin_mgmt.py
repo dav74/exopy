@@ -6,7 +6,11 @@ from models.schemas import (
     AdminCreate, AdminUpdate, AdminPasswordReset, AdminOut, ConsentUpdate,
     LLMSettingsUpdate, LLMSettingsOut
 )
-from services.settings import PROVIDER_CONFIG, get_llm_settings, get_active_provider_api_key, describe_provider_key
+from services.settings import (
+    PROVIDER_CONFIG, LLM_PROVIDER_MODES, get_llm_settings,
+    get_active_provider_api_key, describe_provider_key, resolve_api_key,
+)
+from services import llm_fallback
 from core.crypto import encrypt_secret
 from passlib.hash import bcrypt
 import psycopg2.extras
@@ -523,6 +527,9 @@ def get_llm_settings_endpoint(superadmin: AuthUser = Depends(get_current_superad
     settings = get_llm_settings()
     openrouter_info = describe_provider_key("openrouter", settings)
     albert_info = describe_provider_key("albert", settings)
+    auto_active_provider = None
+    if settings["llm_provider"] == "auto":
+        auto_active_provider = "openrouter" if llm_fallback.is_albert_circuit_open() else "albert"
     return {
         "llm_provider": settings["llm_provider"],
         "llm_model_openrouter": settings["llm_model_openrouter"],
@@ -533,11 +540,12 @@ def get_llm_settings_endpoint(superadmin: AuthUser = Depends(get_current_superad
         "albert_key_source": albert_info["source"],
         "openrouter_key_hint": openrouter_info["hint"],
         "albert_key_hint": albert_info["hint"],
+        "auto_active_provider": auto_active_provider,
     }
 
 @router.put("/settings/llm")
 def update_llm_settings_endpoint(payload: LLMSettingsUpdate, superadmin: AuthUser = Depends(get_current_superadmin)):
-    if payload.llm_provider not in PROVIDER_CONFIG:
+    if payload.llm_provider not in LLM_PROVIDER_MODES:
         raise HTTPException(status_code=400, detail="Fournisseur IA invalide.")
     model_openrouter = payload.llm_model_openrouter.strip()
     model_albert = payload.llm_model_albert.strip()
@@ -562,7 +570,17 @@ def update_llm_settings_endpoint(payload: LLMSettingsUpdate, superadmin: AuthUse
         "openrouter_api_key_encrypted": openrouter_key_encrypted,
         "albert_api_key_encrypted": albert_key_encrypted,
     }
-    if not get_active_provider_api_key(effective_settings):
+    if payload.llm_provider == "auto":
+        missing = [
+            name for provider, name in (("albert", "Albert"), ("openrouter", "OpenRouter"))
+            if not resolve_api_key(provider, effective_settings)
+        ]
+        if missing:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Le mode Auto nécessite une clé API pour Albert ET OpenRouter. Clé(s) manquante(s) : {', '.join(missing)}."
+            )
+    elif not get_active_provider_api_key(effective_settings):
         api_key_env = PROVIDER_CONFIG[payload.llm_provider]["api_key_env"]
         raise HTTPException(
             status_code=400,

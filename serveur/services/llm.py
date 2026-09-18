@@ -13,9 +13,9 @@ from langgraph.graph import END, StateGraph, START
 from langchain_openai import ChatOpenAI
 from core.database import get_db
 from services.settings import get_llm_settings, PROVIDER_CONFIG, resolve_api_key
+from services import llm_fallback
 
-def _build_llm(settings: dict, temperature: float) -> ChatOpenAI:
-    provider = settings.get("llm_provider", "openrouter")
+def _build_llm_for_provider(provider: str, settings: dict, temperature: float) -> ChatOpenAI:
     cfg = PROVIDER_CONFIG.get(provider, PROVIDER_CONFIG["openrouter"])
     model = settings["llm_model_albert"] if provider == "albert" else settings["llm_model_openrouter"]
     return ChatOpenAI(
@@ -24,6 +24,37 @@ def _build_llm(settings: dict, temperature: float) -> ChatOpenAI:
         base_url=cfg["base_url"],
         api_key=resolve_api_key(provider, settings),
     )
+
+def _run_with_fallback(settings: dict, temperature: float, build_chain, invoke_input: dict):
+    """Exécute `build_chain(llm).invoke(invoke_input)` avec le fournisseur choisi.
+
+    En mode "auto", privilégie Albert : si l'appel échoue (n'importe quelle
+    erreur empêchant d'obtenir une réponse), ouvre le circuit breaker et
+    retente immédiatement le même appel via OpenRouter. En mode strict
+    ("openrouter"/"albert"), aucun repli : l'erreur est simplement propagée.
+    Renvoie (résultat, client_llm_effectivement_utilisé).
+    """
+    mode = settings.get("llm_provider", "openrouter")
+    provider = mode
+    if mode == "auto":
+        provider = "openrouter" if llm_fallback.is_albert_circuit_open() else "albert"
+
+    llm = _build_llm_for_provider(provider, settings, temperature)
+    try:
+        result = build_chain(llm).invoke(invoke_input)
+    except Exception as e:
+        if provider == "albert":
+            llm_fallback.record_albert_failure()
+            if mode == "auto":
+                logging.warning(f"Albert indisponible ({e}), bascule vers OpenRouter")
+                llm = _build_llm_for_provider("openrouter", settings, temperature)
+                result = build_chain(llm).invoke(invoke_input)
+                return result, llm
+        raise
+    else:
+        if provider == "albert":
+            llm_fallback.record_albert_success()
+        return result, llm
 
 MAX_TENTATIVES_AIDE = 2
 
@@ -122,13 +153,15 @@ Réponds uniquement avec le JSON, sans explications avant ou après.
 
 def generate_new_exercise(difficulty: str, existing_titles: list[str]):
     settings = get_llm_settings()
-    llm_client = _build_llm(settings, temperature=0.7)
-    chain = prompt_generate_exercise | llm_client | StrOutputParser()
-    response = chain.invoke({
-        "difficulty": difficulty,
-        "existing_titles": ", ".join(existing_titles)
-    })
-    
+    response, _ = _run_with_fallback(
+        settings, 0.7,
+        lambda llm: prompt_generate_exercise | llm | StrOutputParser(),
+        {
+            "difficulty": difficulty,
+            "existing_titles": ", ".join(existing_titles),
+        },
+    )
+
     import json
     import re
     
@@ -139,10 +172,12 @@ def generate_new_exercise(difficulty: str, existing_titles: list[str]):
         return {"error": "Failed to parse AI response", "raw": response}
 
 def verifie_aide(enonce: str, code: str, reponse: str, settings: dict) -> tuple[bool, str]:
-    llm_verif_client = _build_llm(settings, temperature=0)
-    chain_verif = prompt_verif | llm_verif_client | StrOutputParser()
     try:
-        raw = chain_verif.invoke({'enonce': enonce, 'code': code, 'reponse': reponse})
+        raw, _ = _run_with_fallback(
+            settings, 0,
+            lambda llm: prompt_verif | llm | StrOutputParser(),
+            {'enonce': enonce, 'code': code, 'reponse': reponse},
+        )
         cleaned = re.sub(r'^```json\s*|\s*```$', '', raw.strip(), flags=re.MULTILINE).strip()
         data = json.loads(cleaned)
         return bool(data.get("conforme", True)), str(data.get("raison", ""))
@@ -189,19 +224,22 @@ def aide(state : AgentState):
     if not state['is_assistant']:
         return {"messages": [AIMessage(content="")]}
     settings = get_llm_settings()
-    llm_aide_client = _build_llm(settings, temperature=0.3)
     student_code = state['messages'][-1].content
-    chain_aide = prompt_aide | llm_aide_client | StrOutputParser()
     historique = history(state['messages'])
     feedback = ""
     response = ""
+    llm_aide_client = None
     for tentative in range(MAX_TENTATIVES_AIDE):
-        response = chain_aide.invoke({
-            'enonce': state['enonce'],
-            'code': student_code,
-            'historique': historique,
-            'feedback': feedback,
-        })
+        response, llm_aide_client = _run_with_fallback(
+            settings, 0.3,
+            lambda llm: prompt_aide | llm | StrOutputParser(),
+            {
+                'enonce': state['enonce'],
+                'code': student_code,
+                'historique': historique,
+                'feedback': feedback,
+            },
+        )
         conforme, raison = verifie_aide(state['enonce'], student_code, response, settings)
         if conforme:
             break

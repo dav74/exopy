@@ -154,6 +154,9 @@ class LLMSettingsOut(BaseModel):
     albert_key_source: str | None = None
     openrouter_key_hint: str | None = None
     albert_key_hint: str | None = None
+    # Renseigné uniquement quand llm_provider == "auto" : le fournisseur
+    # ("albert" ou "openrouter") qui servirait le prochain appel.
+    auto_active_provider: str | None = None
 
 class AdminOut(BaseModel):
     id: int

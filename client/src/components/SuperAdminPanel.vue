@@ -22,6 +22,7 @@ const llmSettings = ref({
   albert_key_source: null,
   openrouter_key_hint: null,
   albert_key_hint: null,
+  auto_active_provider: null,
 });
 const isLlmSettingsLoading = ref(false);
 const isSavingLlmSettings = ref(false);
@@ -310,14 +311,26 @@ onMounted(() => {
                 :class="llmSettings.llm_provider === 'albert' ? 'bg-white dark:bg-zinc-800 text-blue-600 dark:text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'"
                 class="px-6 py-2 rounded-xl text-xs font-black transition-all uppercase tracking-widest"
               >Albert API</button>
+              <button
+                @click="llmSettings.llm_provider = 'auto'"
+                :class="llmSettings.llm_provider === 'auto' ? 'bg-white dark:bg-zinc-800 text-blue-600 dark:text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'"
+                class="px-6 py-2 rounded-xl text-xs font-black transition-all uppercase tracking-widest"
+              >Auto</button>
             </nav>
+            <p v-if="llmSettings.llm_provider === 'auto'" class="text-xs text-zinc-500 dark:text-zinc-400 ml-1">
+              Privilégie Albert API et bascule automatiquement sur OpenRouter en cas d'erreur
+              (surcharge, indisponibilité...), puis revient sur Albert dès qu'il redevient disponible.
+              <span v-if="llmSettings.auto_active_provider" class="font-bold">
+                Actuellement : {{ llmSettings.auto_active_provider === 'albert' ? 'Albert API' : 'OpenRouter (secours)' }}.
+              </span>
+            </p>
           </div>
 
-          <div v-if="llmSettings.llm_provider === 'openrouter' && !llmSettings.openrouter_key_configured"
+          <div v-if="(llmSettings.llm_provider === 'openrouter' || llmSettings.llm_provider === 'auto') && !llmSettings.openrouter_key_configured"
                class="text-xs text-amber-600 dark:text-amber-500 bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 rounded-xl p-4">
             Attention : la clé API OpenRouter n'est pas configurée sur le serveur. Les requêtes échoueront.
           </div>
-          <div v-if="llmSettings.llm_provider === 'albert' && !llmSettings.albert_key_configured"
+          <div v-if="(llmSettings.llm_provider === 'albert' || llmSettings.llm_provider === 'auto') && !llmSettings.albert_key_configured"
                class="text-xs text-amber-600 dark:text-amber-500 bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 rounded-xl p-4">
             Attention : la clé API Albert n'est pas configurée sur le serveur. Les requêtes échoueront.
           </div>

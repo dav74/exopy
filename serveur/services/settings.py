@@ -16,6 +16,11 @@ PROVIDER_CONFIG = {
     },
 }
 
+# "auto" : mode privilégiant Albert avec repli automatique vers OpenRouter
+# (voir services/llm_fallback.py) ; ce n'est pas un fournisseur réel, donc il
+# n'a pas d'entrée dans PROVIDER_CONFIG.
+LLM_PROVIDER_MODES = {"openrouter", "albert", "auto"}
+
 DEFAULT_LLM_SETTINGS = {
     "llm_provider": "openrouter",
     "llm_model_openrouter": "deepseek/deepseek-v4-flash",
@@ -53,6 +58,8 @@ def resolve_api_key(provider: str, settings: dict) -> str | None:
 def get_active_provider_api_key(settings: dict | None = None) -> str | None:
     settings = settings or get_llm_settings()
     provider = settings.get("llm_provider", "openrouter")
+    if provider == "auto":
+        return resolve_api_key("albert", settings) or resolve_api_key("openrouter", settings)
     return resolve_api_key(provider, settings)
 
 def is_ai_configured() -> bool:
