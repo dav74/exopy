@@ -347,10 +347,22 @@ def log_metric_event(event: LogEvent, current_user: AuthUser = Depends(get_curre
             with conn.cursor() as cur:
                 cur.execute(
                     """INSERT INTO user_progress (user_id, exercise_id, status, error_type, session_id, duration, code)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                       VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id""",
                     (current_user.username, event.exercise_id, event.status, event.error_type, event.session_id, event.duration, event.code)
                 )
-        return {"success": True}
+                new_id = cur.fetchone()[0]
+                if event.status == "ai_request":
+                    cur.execute(
+                        """UPDATE user_progress SET ai_used = TRUE
+                           WHERE id = (
+                               SELECT id FROM user_progress
+                               WHERE user_id = %s AND exercise_id = %s AND session_id = %s
+                                 AND status IN ('success', 'failure')
+                               ORDER BY created_at DESC LIMIT 1
+                           )""",
+                        (current_user.username, event.exercise_id, event.session_id)
+                    )
+        return {"success": True, "id": new_id}
     except Exception as e:
         print(f"Failed to log metric: {e}")
         return {"success": False, "detail": str(e)}

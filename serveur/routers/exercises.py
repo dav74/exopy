@@ -1,9 +1,9 @@
-import os
 from fastapi import APIRouter, Depends, HTTPException, status
 from core.database import get_db
 from core.security import get_current_user, get_current_admin, AuthUser
 from models.schemas import ExerciseCreate, ExerciseUpdate, ExerciseReorder, ExerciseAIRequest
 from services.llm import generate_new_exercise
+from services.settings import is_ai_configured
 import logging
 import random
 import psycopg2.extras
@@ -100,8 +100,8 @@ def get_exercise(id: int, current_user: AuthUser = Depends(get_current_user)):
 @router.post('/admin/exercises/generate')
 def ai_generate_exercise(payload: ExerciseAIRequest, admin: AuthUser = Depends(get_current_admin)):
     try:
-        if not os.getenv("OPENROUTER_API_KEY"):
-            raise HTTPException(status_code=403, detail="Clé API OpenRouter non configurée sur le serveur.")
+        if not is_ai_configured():
+            raise HTTPException(status_code=403, detail="Assistant IA non configuré sur le serveur.")
         result = generate_new_exercise(payload.difficulty, payload.existing_titles)
         return result
     except HTTPException:

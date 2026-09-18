@@ -12,31 +12,18 @@ from langchain_core.messages import HumanMessage, AIMessage
 from langgraph.graph import END, StateGraph, START
 from langchain_openai import ChatOpenAI
 from core.database import get_db
+from services.settings import get_llm_settings, PROVIDER_CONFIG, resolve_api_key
 
-llm = ChatOpenAI(
-    model="deepseek/deepseek-v4-flash",
-    temperature=0.7,
-    base_url="https://openrouter.ai/api/v1",
-    api_key=os.getenv("OPENROUTER_API_KEY"),
-)
-
-# Modèle dédié aux indications données à l'élève : température plus basse pour un
-# meilleur respect des consignes strictes (pas de solution, pas d'invention de variable).
-llm_aide = ChatOpenAI(
-    model="deepseek/deepseek-v4-flash",
-    temperature=0.3,
-    base_url="https://openrouter.ai/api/v1",
-    api_key=os.getenv("OPENROUTER_API_KEY"),
-)
-
-# Modèle dédié à la vérification des réponses de l'assistant (température nulle
-# pour un jugement le plus reproductible possible).
-llm_verif = ChatOpenAI(
-    model="deepseek/deepseek-v4-flash",
-    temperature=0,
-    base_url="https://openrouter.ai/api/v1",
-    api_key=os.getenv("OPENROUTER_API_KEY"),
-)
+def _build_llm(settings: dict, temperature: float) -> ChatOpenAI:
+    provider = settings.get("llm_provider", "openrouter")
+    cfg = PROVIDER_CONFIG.get(provider, PROVIDER_CONFIG["openrouter"])
+    model = settings["llm_model_albert"] if provider == "albert" else settings["llm_model_openrouter"]
+    return ChatOpenAI(
+        model=model,
+        temperature=temperature,
+        base_url=cfg["base_url"],
+        api_key=resolve_api_key(provider, settings),
+    )
 
 MAX_TENTATIVES_AIDE = 2
 
@@ -134,7 +121,9 @@ Réponds uniquement avec le JSON, sans explications avant ou après.
 """)
 
 def generate_new_exercise(difficulty: str, existing_titles: list[str]):
-    chain = prompt_generate_exercise | llm | StrOutputParser()
+    settings = get_llm_settings()
+    llm_client = _build_llm(settings, temperature=0.7)
+    chain = prompt_generate_exercise | llm_client | StrOutputParser()
     response = chain.invoke({
         "difficulty": difficulty,
         "existing_titles": ", ".join(existing_titles)
@@ -149,8 +138,9 @@ def generate_new_exercise(difficulty: str, existing_titles: list[str]):
     except Exception as e:
         return {"error": "Failed to parse AI response", "raw": response}
 
-def verifie_aide(enonce: str, code: str, reponse: str) -> tuple[bool, str]:
-    chain_verif = prompt_verif | llm_verif | StrOutputParser()
+def verifie_aide(enonce: str, code: str, reponse: str, settings: dict) -> tuple[bool, str]:
+    llm_verif_client = _build_llm(settings, temperature=0)
+    chain_verif = prompt_verif | llm_verif_client | StrOutputParser()
     try:
         raw = chain_verif.invoke({'enonce': enonce, 'code': code, 'reponse': reponse})
         cleaned = re.sub(r'^```json\s*|\s*```$', '', raw.strip(), flags=re.MULTILINE).strip()
@@ -178,17 +168,18 @@ class AgentState(TypedDict):
     user_id : str
     exercise_id : int | None
     session_id : str
+    progress_id : int | None
 
-def save_interaction(state: AgentState, interaction_type: str, student_code: str, response: str):
+def save_interaction(state: AgentState, interaction_type: str, student_code: str, response: str, model_name: str):
     try:
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """INSERT INTO ai_interactions
-                       (user_id, exercise_id, session_id, interaction_type, student_code, ai_response, model)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                       (user_id, exercise_id, session_id, interaction_type, student_code, ai_response, model, progress_id)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
                     (state['user_id'], state.get('exercise_id'), state['session_id'],
-                     interaction_type, student_code, response, llm.model_name)
+                     interaction_type, student_code, response, model_name, state.get('progress_id'))
                 )
     except Exception as e:
         import logging
@@ -197,8 +188,10 @@ def save_interaction(state: AgentState, interaction_type: str, student_code: str
 def aide(state : AgentState):
     if not state['is_assistant']:
         return {"messages": [AIMessage(content="")]}
+    settings = get_llm_settings()
+    llm_aide_client = _build_llm(settings, temperature=0.3)
     student_code = state['messages'][-1].content
-    chain_aide = prompt_aide | llm_aide | StrOutputParser()
+    chain_aide = prompt_aide | llm_aide_client | StrOutputParser()
     historique = history(state['messages'])
     feedback = ""
     response = ""
@@ -209,7 +202,7 @@ def aide(state : AgentState):
             'historique': historique,
             'feedback': feedback,
         })
-        conforme, raison = verifie_aide(state['enonce'], student_code, response)
+        conforme, raison = verifie_aide(state['enonce'], student_code, response, settings)
         if conforme:
             break
         logging.warning(f"Réponse de l'assistant rejetée par le vérificateur (tentative {tentative + 1}): {raison}")
@@ -223,7 +216,7 @@ def aide(state : AgentState):
             "et est-ce vraiment ce qu'il fait ? Compare chaque instruction à ce qui est demandé."
         )
         logging.warning("Réponse de repli utilisée après échec répété de la vérification.")
-    save_interaction(state, "aide", student_code, response)
+    save_interaction(state, "aide", student_code, response, llm_aide_client.model_name)
     return {"messages": [AIMessage(content=response)]}
 
 memory = MemorySaver()

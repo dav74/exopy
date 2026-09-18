@@ -54,7 +54,7 @@ const session_id = uuidv4();
 
 const logEvent = async (status, errorType = null, overrideExerciseId = null) => {
   const exerciseId = overrideExerciseId || selectedItemId.value;
-  if (!exerciseId) return;
+  if (!exerciseId) return null;
 
   let duration = null;
   if (exerciseStartTime.value) {
@@ -64,7 +64,7 @@ const logEvent = async (status, errorType = null, overrideExerciseId = null) => 
 
   try {
     const token = localStorage.getItem("access_token");
-    await fetch(API_URL + "/api/metrics/log", {
+    const res = await fetch(API_URL + "/api/metrics/log", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -79,8 +79,11 @@ const logEvent = async (status, errorType = null, overrideExerciseId = null) => 
         code: status === "success" || status === "failure" ? code.value : null
       }),
     });
+    const data = await res.json();
+    return data.id ?? null;
   } catch (err) {
     console.error("Failed to log metric event", err);
+    return null;
   }
 };
 
@@ -161,7 +164,7 @@ const addTestWithDelay = (test, index) => {
   }, index * 1000);
 };
 
-const callAssistant = async () => {
+const callAssistant = async (progressId = null) => {
   const capturedExerciseId = selectedItemId.value;
   if (!aiEnabled.value) {
     msgAI.value = "L'assistant IA n'est pas configuré sur ce serveur.";
@@ -193,6 +196,7 @@ const callAssistant = async () => {
         res_test: resTest.value,
         is_assistant: assistantIsOn.value,
         exercise_id: capturedExerciseId,
+        progress_id: progressId,
       }),
     });
     if (!callAI.ok) {
@@ -243,9 +247,6 @@ const handleCodeUpdate = async (co) => {
     } else {
       resTest.value = "1";
     }
-    if (resTest.value !== "2") {
-      callAssistant();
-    }
     testCode.value.forEach((test, index) => {
       addTestWithDelay(test, index);
     });
@@ -253,19 +254,24 @@ const handleCodeUpdate = async (co) => {
       await logEvent("success");
       exerciseStore.fetchMenuItems(API_URL);
     } else {
-      logEvent("failure");
+      // On attend l'id de la ligne créée avant d'appeler l'assistant, pour lui
+      // transmettre un lien exact (progress_id) vers la tentative qui déclenche
+      // cette sollicitation — indispensable pour que l'export recherche puisse
+      // associer sans ambiguïté la réponse IA à la bonne tentative.
+      const progressId = await logEvent("failure");
+      callAssistant(progressId);
     }
   } catch (err) {
     resTest.value = "0";
-    callAssistant();
     const errStr = err.toString();
     let eType = "Error";
     if (errStr.includes("SyntaxError")) eType = "SyntaxError";
     else if (errStr.includes("IndexError")) eType = "IndexError";
     else if (errStr.includes("NameError")) eType = "NameError";
     else if (errStr.includes("TypeError")) eType = "TypeError";
-    
-    logEvent("failure", eType);
+
+    const progressId = await logEvent("failure", eType);
+    callAssistant(progressId);
 
     if (errStr.includes('File "<exec>",')) {
         errorCode.value = errStr.split('File "<exec>",')[1];

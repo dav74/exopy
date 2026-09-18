@@ -314,6 +314,26 @@ const toggleConsent = async (user) => {
   }
 };
 
+const toggleAiDisabled = async (user) => {
+  const disabling = !user.ai_disabled;
+  const message = disabling
+    ? `Désactiver l'assistant IA pour ${user.username} ?`
+    : `Réactiver l'assistant IA pour ${user.username} ?`;
+  if (!confirm(message)) return;
+  try {
+    const token = localStorage.getItem("access_token");
+    const res = await fetch(`${API_URL}/admin/users/${user.username}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ ai_disabled: disabling })
+    });
+    if (!res.ok) throw new Error("Erreur lors de la mise à jour de l'accès IA");
+    user.ai_disabled = disabling;
+  } catch (err) {
+    alert(err.message);
+  }
+};
+
 const resetUserPassword = async (username) => {
   if (!confirm(`Réinitialiser le mot de passe de ${username} ? Il redeviendra identique à l'identifiant ("${username}") et devra être modifié à la prochaine connexion.`)) return;
   try {
@@ -833,12 +853,16 @@ function parseExercisesFromText(text) {
                       @{{ user.username }}
                       <span v-if="user.must_change_password" title="L'élève doit encore changer son mot de passe" class="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0"></span>
                       <span :title="user.consent_given ? 'Consentement recherche obtenu' : 'Pas de consentement recherche'" class="w-1.5 h-1.5 rounded-full flex-shrink-0" :class="user.consent_given ? 'bg-emerald-500' : 'bg-zinc-300 dark:bg-zinc-600'"></span>
+                      <span v-if="user.ai_disabled" title="Assistant IA désactivé pour cet élève" class="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0"></span>
                     </span>
                   </div>
                 </div>
                 <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button @click.stop="toggleConsent(user)" :class="user.consent_given ? 'text-emerald-500 hover:text-emerald-600' : 'text-zinc-400 hover:text-emerald-500 dark:hover:text-emerald-400'" class="p-1.5 transition-colors" :title="user.consent_given ? 'Consentement recherche obtenu (cliquer pour retirer)' : 'Enregistrer un consentement recherche'">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                  </button>
+                  <button @click.stop="toggleAiDisabled(user)" :class="user.ai_disabled ? 'text-red-500 hover:text-red-600' : 'text-zinc-400 hover:text-red-500 dark:hover:text-red-400'" class="p-1.5 transition-colors" :title="user.ai_disabled ? 'Assistant IA désactivé (cliquer pour réactiver)' : 'Désactiver l\'assistant IA pour cet élève'">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.25 3v1.5M15.75 3v1.5M8.25 19.5V21M15.75 19.5V21M3 8.25H1.5M3 12H1.5M3 15.75H1.5M22.5 8.25H21M22.5 12H21M22.5 15.75H21M6.75 19.5h10.5a2.25 2.25 0 002.25-2.25V6.75a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 6.75v10.5a2.25 2.25 0 002.25 2.25z" /></svg>
                   </button>
                   <button @click.stop="openUserEditForm(user)" class="p-1.5 text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>

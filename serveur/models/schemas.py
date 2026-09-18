@@ -15,6 +15,10 @@ class RequestExercise(BaseModel):
     res_test: str
     is_assistant: bool
     exercise_id: int | None = None
+    # id de la ligne user_progress (renvoyé par POST /api/metrics/log) qui a
+    # déclenché cette sollicitation de l'assistant, pour lier sans ambiguïté
+    # la réponse IA à la tentative concernée (cf. ai_interactions.progress_id).
+    progress_id: int | None = None
 
 class LogEvent(BaseModel):
     exercise_id: int
@@ -130,6 +134,26 @@ class AdminPasswordReset(BaseModel):
 class AdminPasswordChange(BaseModel):
     current_password: str
     new_password: str
+
+class LLMSettingsUpdate(BaseModel):
+    llm_provider: str
+    llm_model_openrouter: str
+    llm_model_albert: str
+    # None = ne pas modifier la clé enregistrée ; "" = supprimer la clé enregistrée
+    # (retour à la variable d'environnement) ; valeur non vide = enregistrer cette clé (chiffrée).
+    openrouter_api_key: str | None = None
+    albert_api_key: str | None = None
+
+class LLMSettingsOut(BaseModel):
+    llm_provider: str
+    llm_model_openrouter: str
+    llm_model_albert: str
+    openrouter_key_configured: bool = False
+    albert_key_configured: bool = False
+    openrouter_key_source: str | None = None
+    albert_key_source: str | None = None
+    openrouter_key_hint: str | None = None
+    albert_key_hint: str | None = None
 
 class AdminOut(BaseModel):
     id: int

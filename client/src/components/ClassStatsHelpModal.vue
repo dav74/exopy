@@ -10,6 +10,8 @@ const sections = [
     items: [
       { label: "Données pseudonymisées", text: "Export des traces d'activité de la classe (tentatives, réussites, aide IA...) sous un identifiant pseudonymisé stable, utilisable pour une analyse externe ou une étude." },
       { label: "Consentement", text: "Seuls les élèves ayant donné leur consentement recherche (géré dans l'onglet Élèves) sont inclus dans l'export." },
+      { label: "Choix des champs", text: "Le bouton \"Choisir les champs\" permet de sélectionner précisément les colonnes à inclure dans l'export (identifiant de l'exercice, statut, etc.)." },
+      { label: "Données sensibles", text: "Le code écrit par l'élève et les réponses de l'assistant IA sont des champs à part, décochés par défaut : ils peuvent contenir des informations identifiantes (noms en commentaire) et sont à relire avant toute diffusion externe." },
     ],
   },
   {

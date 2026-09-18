@@ -30,6 +30,7 @@ services:
       ADMIN_USERNAME: ${ADMIN_USERNAME}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      ALBERT_API_KEY: ${ALBERT_API_KEY:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-}
     depends_on:
       postgres:

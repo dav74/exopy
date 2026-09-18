@@ -12,6 +12,19 @@ import zipfile
 
 router = APIRouter(prefix="/api/research", tags=["research"])
 
+PROGRESS_FIELD_KEYS = {
+    "exercise_id", "exercise_titre", "niveau", "status", "error_type",
+    "duration", "ai_used", "ai_disabled", "code", "ai_response",
+}
+
+# Champs exportés avant l'introduction du choix de champs : conservés comme
+# valeur de repli si l'appelant n'envoie aucun `fields` (ex: ancien client,
+# appel direct de l'API) pour ne pas produire un export quasi vide.
+DEFAULT_FIELDS = {
+    "exercise_id", "exercise_titre", "niveau", "status", "error_type",
+    "duration", "ai_used",
+}
+
 
 def _ensure_pseudonyms(cur, admin_id: int, usernames: list[str]) -> dict[str, str]:
     cur.execute(
@@ -32,72 +45,105 @@ def _ensure_pseudonyms(cur, admin_id: int, usernames: list[str]) -> dict[str, st
     return pseudo_map
 
 
-def _attribute_ai_requests(pseudo_map: dict[str, str], progress_rows: list[dict]) -> list[dict]:
-    groups: dict[tuple, list[dict]] = {}
-    for r in progress_rows:
-        groups.setdefault((r['user_id'], r['exercise_id']), []).append(r)
+def _build_ai_response_map(ai_rows: list[dict]) -> dict[int, str]:
+    """Associe chaque tentative (par id user_progress) à la réponse de l'assistant
+    obtenue pour elle, via le lien exact ai_interactions.progress_id transmis par
+    le client au moment de la sollicitation (cf. RequestExercise.progress_id).
 
+    Volontairement PAS de corrélation par déduction temporelle en repli : un appel
+    LLM peut prendre plusieurs secondes, pendant lesquelles l'élève peut resoumettre
+    du code, ce qui rendrait une déduction par horodatage ambiguë (risque de faux
+    positif/négatif). Les échanges IA sans progress_id (données antérieures à
+    l'introduction de ce lien) sont donc exclus plutôt que devinés."""
+    response_map: dict[int, str] = {}
+    for r in ai_rows:
+        if r['progress_id'] is None:
+            continue
+        if r['progress_id'] in response_map:
+            response_map[r['progress_id']] += " | " + r['ai_response']
+        else:
+            response_map[r['progress_id']] = r['ai_response']
+    return response_map
+
+
+def _build_progress_records(pseudo_map: dict[str, str], ai_disabled_map: dict[str, bool], progress_rows: list[dict], ai_response_map: dict[int, str], fields: set[str]) -> list[dict]:
     records = []
-    for (user_id, exercise_id), rows in groups.items():
-        rows.sort(key=lambda r: r['created_at'])
-        pending = None
-        for r in rows:
-            if r['status'] in ('success', 'failure'):
-                if pending is not None:
-                    records.append(pending)
-                pending = {
-                    "pseudo_id": pseudo_map[user_id],
-                    "exercise_id": exercise_id,
-                    "exercise_titre": r['titre'],
-                    "niveau": r['niveau'],
-                    "status": r['status'],
-                    "error_type": r['error_type'],
-                    "duration": r['duration'],
-                    "ai_request": "no",
-                    "date": r['created_at'].isoformat()
-                }
-            elif r['status'] == 'ai_request' and pending is not None:
-                pending["ai_request"] = "yes"
-        if pending is not None:
-            records.append(pending)
+    for r in progress_rows:
+        rec = {
+            "pseudo_id": pseudo_map[r['user_id']],
+            "date": r['created_at'].isoformat(),
+        }
+        if "exercise_id" in fields:
+            rec["exercise_id"] = r['exercise_id']
+        if "exercise_titre" in fields:
+            rec["exercise_titre"] = r['titre']
+        if "niveau" in fields:
+            rec["niveau"] = r['niveau']
+        if "status" in fields:
+            rec["status"] = r['status']
+        if "error_type" in fields:
+            rec["error_type"] = r['error_type']
+        if "duration" in fields:
+            rec["duration"] = r['duration']
+        if "ai_used" in fields:
+            rec["ai_used"] = "yes" if ai_response_map.get(r['id']) else "no"
+        if "ai_disabled" in fields:
+            rec["ai_disabled"] = "yes" if ai_disabled_map.get(r['user_id']) else "no"
+        if "code" in fields:
+            rec["code"] = r['code']
+        if "ai_response" in fields:
+            rec["ai_response"] = ai_response_map.get(r['id'])
+        records.append(rec)
     return records
 
 
-def _build_data_dictionary(nb_students: int, include_raw_text: bool) -> str:
+def _build_data_dictionary(nb_students: int, fields: set[str]) -> str:
     lines = [
         "EXOPY - Export de recherche pseudonymisé",
         f"Généré le : {datetime.now(timezone.utc).isoformat()}",
         f"Élèves inclus (consentement valide et non révoqué) : {nb_students}",
         "",
-        "progress_events.csv :",
+        "progress_events.csv : une ligne par tentative de soumission (succès ou échec)",
         "  pseudo_id       - identifiant pseudonymisé stable dans le temps ; ne permet pas de",
         "                    retrouver l'élève sans la table de correspondance conservée par l'établissement",
-        "  exercise_id     - identifiant de l'exercice",
-        "  exercise_titre  - titre de l'exercice",
-        "  niveau          - niveau de difficulté (1=très facile ... 4=expert)",
-        "  status          - success | failure (une ligne par tentative de soumission)",
-        "  ai_request      - yes | no : l'assistant IA a-t-il été sollicité pour cette tentative",
-        "  error_type      - type d'erreur Python détecté (si échec)",
-        "  duration        - durée en secondes depuis la dernière action sur cet exercice",
         "  date            - date et heure exactes de l'événement (ISO 8601)",
-        "",
-        "ai_interactions.csv :",
-        "  pseudo_id         - identifiant pseudonymisé",
-        "  exercise_id       - exercice concerné",
-        "  session_id        - identifiant de session (relie une série d'échanges sur un même exercice)",
-        "  interaction_type  - aide (pendant l'exercice) | bilan (après réussite)",
-        "  model             - modèle LLM utilisé",
-        "  date              - date et heure exactes de l'échange (ISO 8601)",
+    ]
+    field_docs = {
+        "exercise_id": "  exercise_id     - identifiant de l'exercice",
+        "exercise_titre": "  exercise_titre  - titre de l'exercice",
+        "niveau": "  niveau          - niveau de difficulté (1=très facile ... 4=expert)",
+        "status": "  status          - success | failure",
+        "error_type": "  error_type      - type d'erreur Python détecté (si échec)",
+        "duration": "  duration        - durée en secondes depuis la dernière action sur cet exercice",
+        "ai_used": "  ai_used         - yes | no : une réponse de l'assistant IA a été obtenue pour cette tentative",
+        "ai_disabled": "  ai_disabled     - yes | no : l'assistant IA est-il désactivé pour cet élève par l'enseignant",
+        "code": "  code            - code source proposé par l'élève pour cette tentative (texte brut)",
+        "ai_response": "  ai_response     - réponse texte de l'assistant IA suite à cette tentative, si sollicité (texte brut)",
+    }
+    for key in ("exercise_id", "exercise_titre", "niveau", "status", "error_type", "duration", "ai_used", "ai_disabled", "code", "ai_response"):
+        if key in fields:
+            lines.append(field_docs[key])
+
+    lines += [
         "",
         "Attention : cet export contient l'horodatage exact de chaque événement (plus de",
         "généralisation à la semaine). Le recoupement d'horaires précis avec l'emploi du temps",
         "d'un petit effectif d'élèves peut faciliter une ré-identification ; à garder en tête avant toute",
         "diffusion externe des données.",
     ]
-    if include_raw_text:
+    if "code" in fields or "ai_response" in fields:
         lines.append(
-            "  student_code, ai_response - texte brut inclus : à relire avant toute diffusion externe"
-            " (peut contenir des noms en commentaire)"
+            "Attention : le texte brut (code et/ou réponses de l'assistant IA) est inclus dans cet export :"
+            " à relire avant toute diffusion externe (peut contenir des noms en commentaire ou d'autres"
+            " informations identifiantes)."
+        )
+    if "ai_used" in fields or "ai_response" in fields:
+        lines.append(
+            "Fiabilité ai_used/ai_response : ces deux champs reposent sur un lien exact entre la tentative"
+            " et l'échange IA (établi au moment de la sollicitation), jamais sur une déduction par horodatage."
+            " Les échanges IA antérieurs à l'introduction de ce lien exact n'ont pas pu être rattachés avec"
+            " certitude à une tentative précise et sont donc absents de cet export plutôt que devinés :"
+            " aucun risque de faux positif, un léger risque de sous-comptage pour les données les plus anciennes."
         )
     return "\n".join(lines) + "\n"
 
@@ -105,10 +151,13 @@ def _build_data_dictionary(nb_students: int, include_raw_text: bool) -> str:
 @router.get('/export')
 def export_research_data(
     format: str = Query("csv", pattern="^(csv|json)$"),
-    include_raw_text: bool = Query(False),
+    fields: list[str] = Query([]),
     admin: AuthUser = Depends(get_current_admin)
 ):
     admin_id = admin.admin_id
+    selected_fields = set(fields) & PROGRESS_FIELD_KEYS
+    if not selected_fields:
+        selected_fields = set(DEFAULT_FIELDS)
     try:
         with get_db() as conn:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
@@ -125,53 +174,49 @@ def export_research_data(
 
                 pseudo_map = _ensure_pseudonyms(cur, admin_id, consenting)
 
+                ai_disabled_map = {}
+                if "ai_disabled" in selected_fields:
+                    cur.execute(
+                        "SELECT username, ai_disabled FROM users WHERE username = ANY(%s)",
+                        (consenting,)
+                    )
+                    ai_disabled_map = {r['username']: r['ai_disabled'] for r in cur.fetchall()}
+
                 cur.execute(
-                    """SELECT up.user_id, up.exercise_id, e.titre, e.niveau, up.status, up.error_type,
-                              up.duration, up.created_at
+                    """SELECT up.id, up.user_id, up.exercise_id, up.session_id, e.titre, e.niveau, up.status,
+                              up.error_type, up.duration, up.code, up.created_at
                        FROM user_progress up
                        JOIN exercises e ON e.id = up.exercise_id
-                       WHERE up.user_id = ANY(%s) AND e.admin_id = %s
+                       WHERE up.user_id = ANY(%s) AND e.admin_id = %s AND up.status IN ('success', 'failure')
                        ORDER BY up.user_id, up.exercise_id, up.created_at""",
                     (consenting, admin_id)
                 )
                 progress_rows = cur.fetchall()
 
-                ai_cols = "user_id, exercise_id, session_id, interaction_type, model, created_at"
-                if include_raw_text:
-                    ai_cols += ", student_code, ai_response"
-                cur.execute(
-                    f"""SELECT {ai_cols} FROM ai_interactions
-                        WHERE user_id = ANY(%s)
-                        ORDER BY user_id, created_at""",
-                    (consenting,)
-                )
-                ai_rows = cur.fetchall()
+                # ai_used est dérivé du même lien exact que ai_response (progress_id, plutôt que
+                # la colonne up.ai_used, mise à jour a posteriori par un appel réseau distinct côté
+                # client, non rejoué en cas d'échec, et donc peu fiable) pour que les deux champs
+                # restent toujours cohérents entre eux.
+                ai_response_map = {}
+                if "ai_response" in selected_fields or "ai_used" in selected_fields:
+                    cur.execute(
+                        """SELECT progress_id, ai_response
+                           FROM ai_interactions
+                           WHERE user_id = ANY(%s) AND progress_id IS NOT NULL""",
+                        (consenting,)
+                    )
+                    ai_rows = cur.fetchall()
+                    ai_response_map = _build_ai_response_map(ai_rows)
 
-        progress_records = _attribute_ai_requests(pseudo_map, progress_rows)
+        progress_records = _build_progress_records(pseudo_map, ai_disabled_map, progress_rows, ai_response_map, selected_fields)
 
-        ai_records = []
-        for r in ai_rows:
-            rec = {
-                "pseudo_id": pseudo_map[r['user_id']],
-                "exercise_id": r['exercise_id'],
-                "session_id": r['session_id'],
-                "interaction_type": r['interaction_type'],
-                "model": r['model'],
-                "date": r['created_at'].isoformat()
-            }
-            if include_raw_text:
-                rec["student_code"] = r.get('student_code')
-                rec["ai_response"] = r.get('ai_response')
-            ai_records.append(rec)
-
-        data_dictionary = _build_data_dictionary(len(consenting), include_raw_text)
+        data_dictionary = _build_data_dictionary(len(consenting), selected_fields)
 
         if format == "json":
             payload = {
                 "generated_at": datetime.now(timezone.utc).isoformat(),
                 "nb_students": len(consenting),
                 "progress_events": progress_records,
-                "ai_interactions": ai_records,
                 "data_dictionary": data_dictionary
             }
             return Response(
@@ -182,13 +227,12 @@ def export_research_data(
 
         buffer = io.BytesIO()
         with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-            for name, records in (("progress_events.csv", progress_records), ("ai_interactions.csv", ai_records)):
-                s = io.StringIO()
-                if records:
-                    writer = csv.DictWriter(s, fieldnames=list(records[0].keys()))
-                    writer.writeheader()
-                    writer.writerows(records)
-                zf.writestr(name, s.getvalue())
+            s = io.StringIO()
+            if progress_records:
+                writer = csv.DictWriter(s, fieldnames=list(progress_records[0].keys()))
+                writer.writeheader()
+                writer.writerows(progress_records)
+            zf.writestr("progress_events.csv", s.getvalue())
             zf.writestr("data_dictionary.txt", data_dictionary)
         buffer.seek(0)
         return Response(

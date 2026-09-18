@@ -1,10 +1,10 @@
-import os
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from datetime import timedelta
 from core.security import create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, AuthUser, get_current_user
 from core.database import get_db
 from models.schemas import Token, UserInfo, AdminPasswordChange
+from services.settings import is_ai_configured
 from passlib.hash import bcrypt
 import psycopg2.extras
 
@@ -69,7 +69,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 
 @router.get("/me", response_model=UserInfo)
 async def get_me(current_user: AuthUser = Depends(get_current_user)):
-    ai_enabled = bool(os.getenv("OPENROUTER_API_KEY"))
+    ai_enabled = is_ai_configured()
 
     if current_user.role in ("admin", "superadmin"):
         try:

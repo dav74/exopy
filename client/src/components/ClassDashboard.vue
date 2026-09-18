@@ -4,6 +4,7 @@ import { useThemeStore } from "../stores/themeStore";
 import { storeToRefs } from "pinia";
 import { API_URL } from "../config.js";
 import ClassStatsHelpModal from "./ClassStatsHelpModal.vue";
+import ExportFieldsModal from "./ExportFieldsModal.vue";
 
 const emit = defineEmits(["select-student"]);
 
@@ -37,12 +38,19 @@ defineExpose({ refresh: fetchClassMetrics });
 
 const exportFormat = ref("csv");
 const isExporting = ref(false);
+const showFieldsModal = ref(false);
+const selectedExportFields = ref([
+  "exercise_id", "exercise_titre", "niveau", "status", "error_type",
+  "duration", "ai_used",
+]);
 
 const exportResearchData = async () => {
   isExporting.value = true;
   try {
     const token = localStorage.getItem("access_token");
-    const response = await fetch(`${API_URL}/api/research/export?format=${exportFormat.value}`, {
+    const params = new URLSearchParams({ format: exportFormat.value });
+    selectedExportFields.value.forEach((f) => params.append("fields", f));
+    const response = await fetch(`${API_URL}/api/research/export?${params.toString()}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!response.ok) {
@@ -120,6 +128,12 @@ const cellKey = (username, exId) => `${username}-${exId}`;
             </p>
           </div>
           <div class="flex items-center gap-2">
+            <button
+              @click="showFieldsModal = true"
+              :class="['text-xs font-bold rounded-xl border px-3 py-2 transition-all', isDarkMode ? 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700' : 'bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50']"
+            >
+              Choisir les champs ({{ selectedExportFields.length }})
+            </button>
             <select v-model="exportFormat" :class="['text-xs font-bold rounded-xl border px-3 py-2', isDarkMode ? 'bg-zinc-800 border-zinc-700 text-zinc-200' : 'bg-white border-zinc-200 text-zinc-700']">
               <option value="csv">CSV (.zip)</option>
               <option value="json">JSON</option>
@@ -134,6 +148,14 @@ const cellKey = (username, exId) => `${username}-${exId}`;
           </div>
         </div>
       </div>
+
+      <ExportFieldsModal
+        v-if="showFieldsModal"
+        :isDarkMode="isDarkMode"
+        :selectedFields="selectedExportFields"
+        @close="showFieldsModal = false"
+        @apply="(fields) => selectedExportFields = fields"
+      />
 
       <!-- Alertes -->
       <div :class="['border p-6 rounded-[2rem] shadow-sm transition-all', isDarkMode ? 'bg-zinc-900/50 border-zinc-800' : 'bg-white border-zinc-200']">

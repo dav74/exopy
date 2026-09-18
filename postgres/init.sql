@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS user_progress (
     session_id VARCHAR(255),
     duration INTEGER,
     code TEXT,
+    ai_used BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -59,6 +60,11 @@ CREATE TABLE IF NOT EXISTS ai_interactions (
     student_code TEXT,
     ai_response TEXT NOT NULL,
     model VARCHAR(255),
+    -- Lien exact et non ambigu vers la tentative de soumission qui a déclenché
+    -- cet appel, transmis explicitement par le client (et non déduit après coup
+    -- par corrélation temporelle, qui serait sujette à erreur si l'appel LLM est
+    -- lent et que l'élève resoumet du code entre-temps).
+    progress_id INTEGER REFERENCES user_progress(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -87,6 +93,24 @@ CREATE TABLE IF NOT EXISTS research_consent (
     revoked_at TIMESTAMP WITH TIME ZONE
 );
 
+-- Configuration globale de l'assistant IA (un seul fournisseur actif pour
+-- toute l'application, modifiable par le super-admin sans redémarrage).
+-- Table singleton : une seule ligne, id = 1, jamais d'autre ligne insérée.
+-- Les clés API des fournisseurs IA peuvent être enregistrées ici (chiffrées avec
+-- SECRET_KEY, jamais en clair) depuis le panel super-admin, en plus des variables
+-- d'environnement OPENROUTER_API_KEY / ALBERT_API_KEY qui servent de repli.
+CREATE TABLE IF NOT EXISTS app_settings (
+    id INTEGER PRIMARY KEY DEFAULT 1,
+    llm_provider VARCHAR(20) NOT NULL DEFAULT 'openrouter',
+    llm_model_openrouter VARCHAR(255) NOT NULL DEFAULT 'deepseek/deepseek-v4-flash',
+    llm_model_albert VARCHAR(255) NOT NULL DEFAULT 'deepseek-v4-flash',
+    openrouter_api_key_encrypted TEXT DEFAULT NULL,
+    albert_api_key_encrypted TEXT DEFAULT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+INSERT INTO app_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+
 CREATE INDEX IF NOT EXISTS idx_research_pseudonyms_admin_id ON research_pseudonyms(admin_id);
 
 CREATE INDEX IF NOT EXISTS idx_user_progress_user_id ON user_progress(user_id);
@@ -97,3 +121,4 @@ CREATE INDEX IF NOT EXISTS idx_exercises_admin_id ON exercises(admin_id);
 CREATE INDEX IF NOT EXISTS idx_ai_interactions_user_id ON ai_interactions(user_id);
 CREATE INDEX IF NOT EXISTS idx_ai_interactions_exercise_id ON ai_interactions(exercise_id);
 CREATE INDEX IF NOT EXISTS idx_ai_interactions_session_id ON ai_interactions(session_id);
+CREATE INDEX IF NOT EXISTS idx_ai_interactions_progress_id ON ai_interactions(progress_id);

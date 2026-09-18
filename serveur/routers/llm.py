@@ -1,10 +1,10 @@
-import os
 from fastapi import APIRouter, Depends, HTTPException
 import logging
 from core.security import get_current_user, AuthUser
 from core.database import get_db
 from models.schemas import RequestExercise
 from services.llm import graph
+from services.settings import is_ai_configured
 
 router = APIRouter(tags=["llm"])
 
@@ -33,7 +33,7 @@ def _check_ai_access(current_user: AuthUser):
 
 @router.post('/request')
 def request_llm(req: RequestExercise, current_user: AuthUser = Depends(get_current_user)):
-    if not os.getenv("OPENROUTER_API_KEY"):
+    if not is_ai_configured():
         raise HTTPException(status_code=403, detail="Assistant IA non configuré sur le serveur.")
 
     _check_ai_access(current_user)
@@ -49,7 +49,8 @@ def request_llm(req: RequestExercise, current_user: AuthUser = Depends(get_curre
             "admin_id": admin_id,
             "user_id": current_user.username,
             "exercise_id": req.exercise_id,
-            "session_id": req.session
+            "session_id": req.session,
+            "progress_id": req.progress_id
         },
         config,
         stream_mode="values"

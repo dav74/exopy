@@ -99,6 +99,11 @@ def _migrate():
                     cur.execute("ALTER TABLE user_progress ADD COLUMN code TEXT")
                     logging.info("Database migration: code column added to user_progress.")
 
+                cur.execute("SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'user_progress' AND column_name = 'ai_used')")
+                if not cur.fetchone()[0]:
+                    cur.execute("ALTER TABLE user_progress ADD COLUMN ai_used BOOLEAN NOT NULL DEFAULT FALSE")
+                    logging.info("Database migration: ai_used column added to user_progress.")
+
                 cur.execute("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'ai_interactions')")
                 if not cur.fetchone()[0]:
                     cur.execute("""
@@ -111,6 +116,7 @@ def _migrate():
                             student_code TEXT,
                             ai_response TEXT NOT NULL,
                             model VARCHAR(255),
+                            progress_id INTEGER REFERENCES user_progress(id) ON DELETE SET NULL,
                             created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
                         )
                     """)
@@ -118,6 +124,12 @@ def _migrate():
                     cur.execute("CREATE INDEX IF NOT EXISTS idx_ai_interactions_exercise_id ON ai_interactions(exercise_id)")
                     cur.execute("CREATE INDEX IF NOT EXISTS idx_ai_interactions_session_id ON ai_interactions(session_id)")
                     logging.info("Database migration: ai_interactions table created.")
+
+                cur.execute("SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'ai_interactions' AND column_name = 'progress_id')")
+                if not cur.fetchone()[0]:
+                    cur.execute("ALTER TABLE ai_interactions ADD COLUMN progress_id INTEGER REFERENCES user_progress(id) ON DELETE SET NULL")
+                    cur.execute("CREATE INDEX IF NOT EXISTS idx_ai_interactions_progress_id ON ai_interactions(progress_id)")
+                    logging.info("Database migration: progress_id column added to ai_interactions.")
 
                 cur.execute("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'research_pseudonyms')")
                 if not cur.fetchone()[0]:
@@ -146,6 +158,28 @@ def _migrate():
                         )
                     """)
                     logging.info("Database migration: research_consent table created.")
+
+                cur.execute("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'app_settings')")
+                if not cur.fetchone()[0]:
+                    cur.execute("""
+                        CREATE TABLE app_settings (
+                            id INTEGER PRIMARY KEY DEFAULT 1,
+                            llm_provider VARCHAR(20) NOT NULL DEFAULT 'openrouter',
+                            llm_model_openrouter VARCHAR(255) NOT NULL DEFAULT 'deepseek/deepseek-v4-flash',
+                            llm_model_albert VARCHAR(255) NOT NULL DEFAULT 'deepseek-v4-flash',
+                            openrouter_api_key_encrypted TEXT DEFAULT NULL,
+                            albert_api_key_encrypted TEXT DEFAULT NULL,
+                            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                        )
+                    """)
+                    cur.execute("INSERT INTO app_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING")
+                    logging.info("Database migration: app_settings table created.")
+
+                cur.execute("SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'app_settings' AND column_name = 'openrouter_api_key_encrypted')")
+                if not cur.fetchone()[0]:
+                    cur.execute("ALTER TABLE app_settings ADD COLUMN openrouter_api_key_encrypted TEXT DEFAULT NULL")
+                    cur.execute("ALTER TABLE app_settings ADD COLUMN albert_api_key_encrypted TEXT DEFAULT NULL")
+                    logging.info("Database migration: encrypted API key columns added to app_settings.")
     except Exception as e:
         logging.error(f"Migration error: {e}")
 

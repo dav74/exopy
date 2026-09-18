@@ -3,8 +3,11 @@ from core.database import get_db
 from core.security import get_current_admin, get_current_superadmin, AuthUser
 from models.schemas import (
     UserInfo, UserPasswordReset, UserUpdate, UserCreate,
-    AdminCreate, AdminUpdate, AdminPasswordReset, AdminOut, ConsentUpdate
+    AdminCreate, AdminUpdate, AdminPasswordReset, AdminOut, ConsentUpdate,
+    LLMSettingsUpdate, LLMSettingsOut
 )
+from services.settings import PROVIDER_CONFIG, get_llm_settings, get_active_provider_api_key, describe_provider_key
+from core.crypto import encrypt_secret
 from passlib.hash import bcrypt
 import psycopg2.extras
 import csv
@@ -510,6 +513,74 @@ def reset_admin_password(payload: AdminPasswordReset, superadmin: AuthUser = Dep
                     (_hash_password(row['username']), payload.admin_id)
                 )
         return {"success": True, "message": "Mot de passe admin réinitialisé (identique à l'identifiant)."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/settings/llm", response_model=LLMSettingsOut)
+def get_llm_settings_endpoint(superadmin: AuthUser = Depends(get_current_superadmin)):
+    settings = get_llm_settings()
+    openrouter_info = describe_provider_key("openrouter", settings)
+    albert_info = describe_provider_key("albert", settings)
+    return {
+        "llm_provider": settings["llm_provider"],
+        "llm_model_openrouter": settings["llm_model_openrouter"],
+        "llm_model_albert": settings["llm_model_albert"],
+        "openrouter_key_configured": openrouter_info["configured"],
+        "albert_key_configured": albert_info["configured"],
+        "openrouter_key_source": openrouter_info["source"],
+        "albert_key_source": albert_info["source"],
+        "openrouter_key_hint": openrouter_info["hint"],
+        "albert_key_hint": albert_info["hint"],
+    }
+
+@router.put("/settings/llm")
+def update_llm_settings_endpoint(payload: LLMSettingsUpdate, superadmin: AuthUser = Depends(get_current_superadmin)):
+    if payload.llm_provider not in PROVIDER_CONFIG:
+        raise HTTPException(status_code=400, detail="Fournisseur IA invalide.")
+    model_openrouter = payload.llm_model_openrouter.strip()
+    model_albert = payload.llm_model_albert.strip()
+    if not model_openrouter or not model_albert:
+        raise HTTPException(status_code=400, detail="Le nom du modèle ne peut pas être vide.")
+
+    current = get_llm_settings()
+    openrouter_key_encrypted = current.get("openrouter_api_key_encrypted")
+    albert_key_encrypted = current.get("albert_api_key_encrypted")
+
+    if payload.openrouter_api_key is not None:
+        stripped = payload.openrouter_api_key.strip()
+        openrouter_key_encrypted = encrypt_secret(stripped) if stripped else None
+    if payload.albert_api_key is not None:
+        stripped = payload.albert_api_key.strip()
+        albert_key_encrypted = encrypt_secret(stripped) if stripped else None
+
+    effective_settings = {
+        "llm_provider": payload.llm_provider,
+        "llm_model_openrouter": model_openrouter,
+        "llm_model_albert": model_albert,
+        "openrouter_api_key_encrypted": openrouter_key_encrypted,
+        "albert_api_key_encrypted": albert_key_encrypted,
+    }
+    if not get_active_provider_api_key(effective_settings):
+        api_key_env = PROVIDER_CONFIG[payload.llm_provider]["api_key_env"]
+        raise HTTPException(
+            status_code=400,
+            detail=f"Aucune clé API disponible pour ce fournisseur (ni enregistrée en base, ni via la variable d'environnement {api_key_env})."
+        )
+
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """UPDATE app_settings
+                       SET llm_provider = %s, llm_model_openrouter = %s, llm_model_albert = %s,
+                           openrouter_api_key_encrypted = %s, albert_api_key_encrypted = %s, updated_at = NOW()
+                       WHERE id = 1""",
+                    (payload.llm_provider, model_openrouter, model_albert,
+                     openrouter_key_encrypted, albert_key_encrypted)
+                )
+        return {"success": True, "message": "Configuration IA mise à jour."}
     except HTTPException:
         raise
     except Exception as e:
