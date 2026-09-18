@@ -131,29 +131,32 @@ def _migrate():
                     cur.execute("CREATE INDEX IF NOT EXISTS idx_ai_interactions_progress_id ON ai_interactions(progress_id)")
                     logging.info("Database migration: progress_id column added to ai_interactions.")
 
-                    # Rattache rétroactivement les interactions IA historiques (créées avant
-                    # l'introduction de progress_id) à leur tentative user_progress : même
-                    # utilisateur/exercice/session, la tentative success/failure la plus récente
-                    # précédant l'interaction (elle est toujours journalisée avant l'appel à
-                    # l'assistant côté client). N'écrase jamais un lien déjà posé par le client,
-                    # ne devine rien quand aucune correspondance n'existe (progress_id reste NULL).
-                    cur.execute("""
-                        UPDATE ai_interactions ai
-                        SET progress_id = matched.progress_id
-                        FROM (
-                            SELECT DISTINCT ON (ai2.id) ai2.id AS interaction_id, up.id AS progress_id
-                            FROM ai_interactions ai2
-                            JOIN user_progress up
-                              ON up.user_id = ai2.user_id
-                             AND up.exercise_id = ai2.exercise_id
-                             AND up.session_id = ai2.session_id
-                             AND up.status IN ('success', 'failure')
-                             AND up.created_at <= ai2.created_at
-                            WHERE ai2.progress_id IS NULL
-                            ORDER BY ai2.id, up.created_at DESC
-                        ) matched
-                        WHERE ai.id = matched.interaction_id
-                    """)
+                # Rattache rétroactivement les interactions IA historiques (créées avant
+                # l'introduction de progress_id, ou lors d'un précédent démarrage où la colonne
+                # existait déjà) à leur tentative user_progress : même utilisateur/exercice/session,
+                # la tentative success/failure la plus récente précédant l'interaction (elle est
+                # toujours journalisée avant l'appel à l'assistant côté client). N'écrase jamais un
+                # lien déjà posé par le client, ne devine rien quand aucune correspondance n'existe
+                # (progress_id reste NULL). Hors du bloc ci-dessus car idempotent (ne touche que les
+                # lignes encore NULL) : peut se rejouer sans risque à chaque démarrage.
+                cur.execute("""
+                    UPDATE ai_interactions ai
+                    SET progress_id = matched.progress_id
+                    FROM (
+                        SELECT DISTINCT ON (ai2.id) ai2.id AS interaction_id, up.id AS progress_id
+                        FROM ai_interactions ai2
+                        JOIN user_progress up
+                          ON up.user_id = ai2.user_id
+                         AND up.exercise_id = ai2.exercise_id
+                         AND up.session_id = ai2.session_id
+                         AND up.status IN ('success', 'failure')
+                         AND up.created_at <= ai2.created_at
+                        WHERE ai2.progress_id IS NULL
+                        ORDER BY ai2.id, up.created_at DESC
+                    ) matched
+                    WHERE ai.id = matched.interaction_id
+                """)
+                if cur.rowcount:
                     logging.info(f"Database migration: backfilled progress_id for {cur.rowcount} historical ai_interactions rows.")
 
                 cur.execute("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'research_pseudonyms')")
