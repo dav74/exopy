@@ -8,7 +8,7 @@ const sections = [
     color: "blue",
     title: "Ajouter un élève",
     items: [
-      { label: "Formulaire manuel", text: "Le bouton \"Ajouter\" crée une fiche élève à partir d'un nom et d'un prénom. Un identifiant de connexion est généré automatiquement, modifiable ensuite via la fiche de l'élève." },
+      { label: "Formulaire manuel", text: "Le bouton \"Ajouter\" crée une fiche élève à partir d'un nom et d'un prénom. Un identifiant de connexion est généré automatiquement, modifiable ensuite via la fiche de l'élève. Le niveau scolaire (Terminale/Première) est facultatif et peut être renseigné ou modifié à tout moment depuis la fiche de l'élève." },
     ],
   },
   {
@@ -17,9 +17,9 @@ const sections = [
     title: "Importer (.csv)",
     intro: "Permet de créer ou mettre à jour toute la liste des élèves d'un coup à partir d'un fichier CSV.",
     items: [
-      { label: "Format", text: "Un fichier CSV avec au moins 2 colonnes : nom, prénom (les colonnes suivantes sont ignorées). Une éventuelle ligne d'en-tête est détectée et ignorée automatiquement." },
+      { label: "Format", text: "Un fichier CSV avec au moins 2 colonnes : nom, prénom. Une 3ᵉ colonne optionnelle niveau (T pour Terminale, P pour Première, vide si non renseigné) est acceptée ; les colonnes suivantes sont ignorées. Une éventuelle ligne d'en-tête est détectée et ignorée automatiquement." },
       { label: "Identifiants générés", text: "Pour chaque nouvel élève, l'identifiant est généré à partir des 6 premières lettres du nom + la 1ère lettre du prénom (sans accents, suffixe numérique en cas de doublon), et sert aussi de mot de passe initial. L'élève devra le changer à sa première connexion." },
-      { label: "⚠️ Remplacement complet", text: "Ce fichier devient la liste officielle de la classe : les élèves déjà présents (même nom et prénom) sont conservés avec leur historique, les nouveaux sont créés, et tout élève absent du fichier est supprimé avec son historique." },
+      { label: "⚠️ Remplacement complet", text: "Ce fichier devient la liste officielle de la classe : les élèves déjà présents (même nom et prénom) sont conservés avec leur historique, les nouveaux sont créés, et tout élève absent du fichier est supprimé avec son historique. Si le fichier contient la colonne niveau, elle est aussi mise à jour pour les élèves déjà présents ; sans cette colonne, leur niveau existant est conservé." },
     ],
   },
   {
@@ -27,7 +27,7 @@ const sections = [
     color: "indigo",
     title: "Exporter (.csv)",
     items: [
-      { label: "Contenu", text: "Télécharge la liste actuelle des élèves (nom, prénom, identifiant) au format CSV : utile pour distribuer les identifiants ou garder une trace de la classe." },
+      { label: "Contenu", text: "Télécharge la liste actuelle des élèves (nom, prénom, niveau, identifiant) au format CSV : utile pour distribuer les identifiants ou garder une trace de la classe." },
     ],
   },
 ];

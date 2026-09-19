@@ -50,19 +50,23 @@ const currentTab = ref("exercises");
 
 const users = ref([]);
 const userSearchQuery = ref("");
+const userNiveauFilter = ref("all");
 const selectedStudent = ref(null);
 const isUsersLoading = ref(false);
 const isEditingUser = ref(false);
 const isCreatingUser = ref(false);
-const userFormData = ref({ username: "", nom: "", prenom: "", ai_disabled: false });
+const userFormData = ref({ username: "", nom: "", prenom: "", niveau: "", ai_disabled: false });
 const editingOriginalUsername = ref("");
-const newUserFormData = ref({ username: "", nom: "", prenom: "" });
+const newUserFormData = ref({ username: "", nom: "", prenom: "", niveau: "" });
 const isUpdatingUser = ref(false);
 const isAddingUser = ref(false);
 const isImportingUsers = ref(false);
 const showExercisesHelp = ref(false);
 const showUsersHelp = ref(false);
 const userCsvInput = ref(null);
+const classAiDisabled = ref(false);
+const aiLockedBySuper = ref(false);
+const isTogglingClassAi = ref(false);
 
 const isEditing = ref(false);
 const showForm = ref(false);
@@ -153,6 +157,45 @@ const loadUsers = async () => {
   }
 };
 
+const loadAiSettings = async () => {
+  try {
+    const token = localStorage.getItem("access_token");
+    const res = await fetch(`${API_URL}/admin/ai-settings`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) throw new Error("Erreur lors du chargement des réglages IA");
+    const data = await res.json();
+    classAiDisabled.value = !!data.ai_disabled;
+    aiLockedBySuper.value = !!data.ai_locked_by_super;
+  } catch (err) {
+    console.error(err.message);
+  }
+};
+
+const toggleClassAi = async () => {
+  if (aiLockedBySuper.value) return;
+  const disabling = !classAiDisabled.value;
+  const message = disabling
+    ? "Désactiver l'assistant IA pour l'ensemble des élèves ? Les désactivations/réactivations individuelles restent inchangées et reprendront effet si vous réactivez l'IA globalement."
+    : "Réactiver l'assistant IA pour l'ensemble des élèves ?";
+  if (!confirm(message)) return;
+  isTogglingClassAi.value = true;
+  try {
+    const token = localStorage.getItem("access_token");
+    const res = await fetch(`${API_URL}/admin/ai-settings`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ ai_disabled: disabling })
+    });
+    if (!res.ok) throw new Error("Erreur lors de la mise à jour de l'accès IA");
+    classAiDisabled.value = disabling;
+  } catch (err) {
+    alert(err.message);
+  } finally {
+    isTogglingClassAi.value = false;
+  }
+};
+
 const loadStudentHistory = async (studentId) => {
   isHistoryLoading.value = true;
   try {
@@ -200,13 +243,15 @@ const switchStudentTab = (tab) => {
 };
 
 const filteredUsers = computed(() => {
-  if (!userSearchQuery.value) return users.value;
   const q = userSearchQuery.value.toLowerCase();
-  return users.value.filter(u =>
-    u.username.toLowerCase().includes(q) ||
-    (u.nom && u.nom.toLowerCase().includes(q)) ||
-    (u.prenom && u.prenom.toLowerCase().includes(q))
-  );
+  return users.value.filter(u => {
+    const matchesSearch = !q ||
+      u.username.toLowerCase().includes(q) ||
+      (u.nom && u.nom.toLowerCase().includes(q)) ||
+      (u.prenom && u.prenom.toLowerCase().includes(q));
+    const matchesNiveau = userNiveauFilter.value === "all" || u.niveau === userNiveauFilter.value;
+    return matchesSearch && matchesNiveau;
+  });
 });
 
 const openUserEditForm = (user) => {
@@ -214,14 +259,14 @@ const openUserEditForm = (user) => {
   isCreatingUser.value = false;
   selectedStudent.value = null;
   editingOriginalUsername.value = user.username;
-  userFormData.value = { username: user.username, nom: user.nom || "", prenom: user.prenom || "", ai_disabled: !!user.ai_disabled };
+  userFormData.value = { username: user.username, nom: user.nom || "", prenom: user.prenom || "", niveau: user.niveau || "", ai_disabled: !!user.ai_disabled };
 };
 
 const openCreateUserForm = () => {
   isCreatingUser.value = true;
   isEditingUser.value = false;
   selectedStudent.value = null;
-  newUserFormData.value = { username: "", nom: "", prenom: "" };
+  newUserFormData.value = { username: "", nom: "", prenom: "", niveau: "" };
 };
 
 const cancelUserEdit = () => { isEditingUser.value = false; };
@@ -238,7 +283,7 @@ const submitUserForm = async () => {
     const res = await fetch(`${API_URL}/admin/users/${editingOriginalUsername.value}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ username: userFormData.value.username, nom: userFormData.value.nom, prenom: userFormData.value.prenom, ai_disabled: userFormData.value.ai_disabled })
+      body: JSON.stringify({ username: userFormData.value.username, nom: userFormData.value.nom, prenom: userFormData.value.prenom, niveau: userFormData.value.niveau, ai_disabled: userFormData.value.ai_disabled })
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -412,8 +457,8 @@ const handleUserCSVUpload = async (event) => {
 
 const exportUsers = () => {
   if (users.value.length === 0) { alert("Aucun utilisateur à exporter."); return; }
-  const header = "nom,prenom,login\n";
-  const rows = users.value.map(u => `"${u.nom || ''}","${u.prenom || ''}","${u.username}"`).join("\n");
+  const header = "nom,prenom,niveau,login\n";
+  const rows = users.value.map(u => `"${u.nom || ''}","${u.prenom || ''}","${u.niveau || ''}","${u.username}"`).join("\n");
   const csvContent = header + rows;
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -451,6 +496,7 @@ const exportExercises = async () => {
 onMounted(() => {
   loadExercises();
   loadUsers();
+  loadAiSettings();
 });
 
 const resetForm = () => {
@@ -823,6 +869,11 @@ function parseExercisesFromText(text) {
               <input v-model="userSearchQuery" type="text" placeholder="Rechercher..." class="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-3 pl-10 text-sm focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-500 outline-none transition-all shadow-sm dark:shadow-none dark:text-white">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 absolute left-3.5 top-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
             </div>
+            <select v-model="userNiveauFilter" class="w-full mb-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-2.5 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm dark:shadow-none dark:text-white cursor-pointer">
+              <option value="all">Tous les niveaux</option>
+              <option value="T">Terminale</option>
+              <option value="P">Première</option>
+            </select>
             <div class="flex gap-2 mb-4">
               <button @click="openCreateUserForm" class="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-all shadow-sm text-[10px] uppercase tracking-wider">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
@@ -834,6 +885,18 @@ function parseExercisesFromText(text) {
                 <span v-else>Importer</span>
               </button>
               <button @click="exportUsers" class="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 rounded-xl font-bold transition-all border border-zinc-200 dark:border-zinc-700 text-[10px] uppercase tracking-wider shadow-sm">Exporter</button>
+            </div>
+            <div class="flex items-center justify-between gap-3 p-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700">
+              <div class="min-w-0">
+                <p class="text-[10px] font-black text-zinc-700 dark:text-zinc-200 uppercase tracking-widest">Assistant IA (tous les élèves)</p>
+                <p v-if="aiLockedBySuper" class="text-[10px] text-red-500 font-bold mt-0.5">L'assistant IA a été désactivé par l'administrateur.</p>
+                <p v-else class="text-[10px] text-zinc-400 dark:text-zinc-500 mt-0.5">Coupe l'IA pour toute la classe en un clic.</p>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer flex-shrink-0" :class="{ 'opacity-50 pointer-events-none': isTogglingClassAi || aiLockedBySuper }">
+                <input type="checkbox" :checked="classAiDisabled || aiLockedBySuper" :disabled="aiLockedBySuper" @click.prevent="toggleClassAi" class="sr-only peer">
+                <div class="w-11 h-6 bg-zinc-200 dark:bg-zinc-700 rounded-full peer peer-checked:bg-red-500 transition-colors"></div>
+                <div class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
+              </label>
             </div>
           </div>
           <div class="flex-1 overflow-y-auto p-4 custom-scrollbar">
@@ -848,6 +911,7 @@ function parseExercisesFromText(text) {
                     <span class="font-bold tracking-tight text-sm transition-colors truncate" :class="selectedStudent && selectedStudent.username === user.username ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 group-hover:text-zinc-900 dark:group-hover:text-white'">
                       {{ user.nom }} {{ user.prenom }}
                       <span v-if="!user.prenom && !user.nom">{{ user.username }}</span>
+                      <span v-if="user.niveau" class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider align-middle" :class="user.niveau === 'T' ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400' : 'bg-teal-500/10 text-teal-600 dark:text-teal-400'">{{ user.niveau }}</span>
                     </span>
                     <span class="text-[9px] text-zinc-400 dark:text-zinc-500 font-black uppercase tracking-widest truncate flex items-center gap-1.5">
                       @{{ user.username }}
@@ -901,6 +965,14 @@ function parseExercisesFromText(text) {
                   <input v-model="newUserFormData.nom" type="text" class="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-4 text-zinc-800 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner" placeholder="Dupont">
                 </div>
               </div>
+              <div class="space-y-3">
+                <label class="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest ml-1">Niveau scolaire</label>
+                <select v-model="newUserFormData.niveau" class="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-4 text-zinc-800 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner cursor-pointer">
+                  <option value="">Non renseigné</option>
+                  <option value="P">Première</option>
+                  <option value="T">Terminale</option>
+                </select>
+              </div>
               <div class="text-xs text-zinc-500 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-4">
                 Le mot de passe initial de l'élève sera automatiquement identique à son identifiant. Il devra le modifier à sa première connexion.
               </div>
@@ -938,6 +1010,14 @@ function parseExercisesFromText(text) {
                   <label class="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest ml-1">Nom</label>
                   <input v-model="userFormData.nom" type="text" class="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-4 text-zinc-800 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner">
                 </div>
+              </div>
+              <div class="space-y-3">
+                <label class="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest ml-1">Niveau scolaire</label>
+                <select v-model="userFormData.niveau" class="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-4 text-zinc-800 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner cursor-pointer">
+                  <option value="">Non renseigné</option>
+                  <option value="P">Première</option>
+                  <option value="T">Terminale</option>
+                </select>
               </div>
               <div class="flex items-center justify-between gap-4 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700">
                 <div>

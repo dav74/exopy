@@ -11,7 +11,9 @@ CREATE TABLE IF NOT EXISTS admins (
     email VARCHAR(255) DEFAULT NULL,
     openrouter_api_key VARCHAR(512) DEFAULT NULL,
     is_super BOOLEAN DEFAULT FALSE,
-    must_change_password BOOLEAN NOT NULL DEFAULT FALSE
+    must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
+    ai_disabled BOOLEAN NOT NULL DEFAULT FALSE,
+    ai_locked_by_super BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE TABLE IF NOT EXISTS users (
@@ -20,6 +22,7 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash VARCHAR(255) NOT NULL,
     nom VARCHAR(255) NOT NULL DEFAULT '',
     prenom VARCHAR(255) NOT NULL DEFAULT '',
+    niveau VARCHAR(1) NOT NULL DEFAULT '' CHECK (niveau IN ('', 'T', 'P')),
     admin_id INTEGER NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
     must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
     ai_disabled BOOLEAN NOT NULL DEFAULT FALSE

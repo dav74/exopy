@@ -4,6 +4,7 @@ import { API_URL } from "../config.js";
 import { useThemeStore } from "../stores/themeStore";
 import { useAuthStore } from "../stores/authStore";
 import { storeToRefs } from "pinia";
+import ExportFieldsModal from "./ExportFieldsModal.vue";
 
 const themeStore = useThemeStore();
 const authStore = useAuthStore();
@@ -238,6 +239,82 @@ const submitLlmSettings = async () => {
   }
 };
 
+const togglingAiLockId = ref(null);
+const toggleAiLock = async (adm) => {
+  const locking = !adm.ai_locked_by_super;
+  const label = adm.username;
+  const message = locking
+    ? `Désactiver totalement l'assistant IA pour ${label} et ses élèves ? Il ne pourra pas le réactiver lui-même.`
+    : `Lever la désactivation de l'assistant IA pour ${label} ?`;
+  if (!confirm(message)) return;
+  togglingAiLockId.value = adm.id;
+  try {
+    const token = localStorage.getItem("access_token");
+    const res = await fetch(`${API_URL}/admin/admins/${adm.id}/ai-lock`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ locked: locking })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Erreur lors de la mise à jour");
+    }
+    adm.ai_locked_by_super = locking;
+  } catch (err) {
+    alert(err.message);
+  } finally {
+    togglingAiLockId.value = null;
+  }
+};
+
+const exportFormat = ref("csv");
+const isExporting = ref(false);
+const showFieldsModal = ref(false);
+const selectedExportFields = ref([
+  "admin", "exercise_id", "exercise_titre", "niveau", "status", "error_type",
+  "duration", "ai_used",
+]);
+const exportAdminIds = ref(new Set());
+
+const toggleExportAdmin = (id) => {
+  const next = new Set(exportAdminIds.value);
+  if (next.has(id)) next.delete(id);
+  else next.add(id);
+  exportAdminIds.value = next;
+};
+const selectAllExportAdmins = () => { exportAdminIds.value = new Set(regularAdmins.value.map(a => a.id)); };
+const clearExportAdmins = () => { exportAdminIds.value = new Set(); };
+
+const exportResearchData = async () => {
+  isExporting.value = true;
+  try {
+    const token = localStorage.getItem("access_token");
+    const params = new URLSearchParams({ format: exportFormat.value });
+    selectedExportFields.value.forEach((f) => params.append("fields", f));
+    exportAdminIds.value.forEach((id) => params.append("admin_ids", id));
+    const response = await fetch(`${API_URL}/api/research/export/admins?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.detail || "Erreur lors de l'export");
+    }
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = exportFormat.value === "json" ? "exopy_research_export.json" : "exopy_research_export.zip";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    alert(err.message);
+  } finally {
+    isExporting.value = false;
+  }
+};
+
 onMounted(() => {
   loadAdmins();
   loadLlmSettings();
@@ -290,7 +367,58 @@ onMounted(() => {
             :class="activeTab === 'models' ? 'bg-white dark:bg-zinc-800 text-blue-600 dark:text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'"
             class="px-6 py-2 rounded-xl text-xs font-black transition-all uppercase tracking-widest"
           >Gestion des modèles</button>
+          <button
+            @click="activeTab = 'export'; if (!exportAdminIds.size) selectAllExportAdmins()"
+            :class="activeTab === 'export' ? 'bg-white dark:bg-zinc-800 text-blue-600 dark:text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'"
+            class="px-6 py-2 rounded-xl text-xs font-black transition-all uppercase tracking-widest"
+          >Export recherche</button>
         </nav>
+
+        <div v-if="activeTab === 'export'" class="bg-white dark:bg-zinc-800 rounded-[2rem] p-8 shadow-xl border border-zinc-100 dark:border-zinc-700 space-y-6">
+          <div>
+            <h3 class="text-xl font-black text-zinc-800 dark:text-white">🔬 Export recherche (données pseudonymisées)</h3>
+            <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Seuls les élèves ayant un consentement recherche valide sont inclus, sous l'identifiant pseudonymisé de leur enseignant.</p>
+          </div>
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Admins à inclure ({{ exportAdminIds.size }}/{{ regularAdmins.length }})</span>
+              <span class="text-xs font-bold text-blue-600 dark:text-blue-400">
+                <button @click="selectAllExportAdmins" class="hover:underline">Tout</button> ·
+                <button @click="clearExportAdmins" class="hover:underline">Aucun</button>
+              </span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <label v-for="adm in regularAdmins" :key="adm.id" class="flex items-center gap-3 p-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 cursor-pointer">
+                <input type="checkbox" :checked="exportAdminIds.has(adm.id)" @change="toggleExportAdmin(adm.id)" class="w-4 h-4 accent-blue-600">
+                <span class="text-sm font-bold text-zinc-700 dark:text-zinc-200 truncate">{{ adm.username }}<span v-if="adm.nom || adm.prenom" class="font-medium text-zinc-400"> · {{ adm.prenom }} {{ adm.nom }}</span></span>
+              </label>
+            </div>
+            <div v-if="regularAdmins.length === 0" class="text-sm italic text-zinc-400">Aucun admin enregistré.</div>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button @click="showFieldsModal = true" class="text-xs font-bold rounded-xl border px-3 py-2 bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all">
+              Choisir les champs ({{ selectedExportFields.length }})
+            </button>
+            <select v-model="exportFormat" class="text-xs font-bold rounded-xl border px-3 py-2 bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200">
+              <option value="csv">CSV (.zip)</option>
+              <option value="json">JSON</option>
+            </select>
+            <button
+              @click="exportResearchData"
+              :disabled="isExporting || exportAdminIds.size === 0"
+              class="px-5 py-2 rounded-xl text-xs font-black uppercase tracking-widest text-white bg-indigo-600 hover:bg-indigo-500 transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+            >{{ isExporting ? 'Export...' : 'Exporter' }}</button>
+          </div>
+        </div>
+
+        <ExportFieldsModal
+          v-if="showFieldsModal"
+          :isDarkMode="isDarkMode"
+          :selectedFields="selectedExportFields"
+          :showAdminField="true"
+          @close="showFieldsModal = false"
+          @apply="(fields) => selectedExportFields = fields"
+        />
 
         <div v-if="activeTab === 'models'" class="bg-white dark:bg-zinc-800 rounded-[2rem] p-8 shadow-xl border border-zinc-100 dark:border-zinc-700 space-y-6">
           <div>
@@ -493,6 +621,16 @@ onMounted(() => {
                   </div>
                   <div v-if="adm.email" class="text-[10px] text-zinc-400 dark:text-zinc-600 mt-0.5">{{ adm.email }}</div>
                 </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <label class="flex items-center gap-2 mr-2 cursor-pointer" :class="{ 'opacity-50 pointer-events-none': togglingAiLockId === adm.id }" :title="adm.ai_locked_by_super ? 'Assistant IA désactivé (cliquer pour lever)' : 'Désactiver totalement l\'assistant IA pour cet admin'">
+                  <span class="text-[9px] font-black uppercase tracking-widest" :class="adm.ai_locked_by_super ? 'text-red-500' : 'text-zinc-400 dark:text-zinc-500'">{{ adm.ai_locked_by_super ? 'IA désactivée' : 'IA active' }}</span>
+                  <span class="relative inline-flex items-center flex-shrink-0">
+                    <input type="checkbox" :checked="adm.ai_locked_by_super" @click.prevent="toggleAiLock(adm)" class="sr-only peer">
+                    <span class="w-11 h-6 bg-zinc-200 dark:bg-zinc-700 rounded-full peer peer-checked:bg-red-500 transition-colors block"></span>
+                    <span class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5"></span>
+                  </span>
+                </label>
               </div>
               <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button @click="openEditAdminForm(adm)" class="px-4 py-2 text-[10px] font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/5 border border-blue-200 dark:border-blue-500/20 rounded-xl uppercase tracking-widest hover:bg-blue-100 dark:hover:bg-blue-500/10 transition-all">Modifier</button>

@@ -4,7 +4,7 @@ from core.security import get_current_admin, get_current_superadmin, AuthUser
 from models.schemas import (
     UserInfo, UserPasswordReset, UserUpdate, UserCreate,
     AdminCreate, AdminUpdate, AdminPasswordReset, AdminOut, ConsentUpdate,
-    LLMSettingsUpdate, LLMSettingsOut
+    LLMSettingsUpdate, LLMSettingsOut, AdminAiToggle, AdminAiSettings, AdminAiLock
 )
 from services.settings import (
     PROVIDER_CONFIG, LLM_PROVIDER_MODES, get_llm_settings,
@@ -29,6 +29,27 @@ def _remove_accents(text: str) -> str:
     nfkd = unicodedata.normalize('NFKD', text)
     return "".join(c for c in nfkd if not unicodedata.combining(c))
 
+def _validate_niveau(raw: str | None) -> str | None:
+    """Pour les appels API directs (formulaire création/édition) : valeur stricte."""
+    if raw is None:
+        return None
+    v = raw.strip().upper()
+    if v not in ("", "T", "P"):
+        raise HTTPException(status_code=400, detail="Niveau invalide : 'T', 'P' ou vide.")
+    return v
+
+def _normalize_niveau(raw: str) -> str:
+    """Pour l'import CSV : tolérant, dégrade vers '' plutôt que d'échouer (protège aussi
+    contre un ancien export nom,prenom,login réimporté après cette évolution)."""
+    if not raw:
+        return ""
+    v = _remove_accents(raw.strip()).lower()
+    if v in ("t", "terminale", "tle", "term"):
+        return "T"
+    if v in ("p", "premiere", "1re", "1ere"):
+        return "P"
+    return ""
+
 def _generate_login(nom: str, prenom: str, existing_logins: set) -> str:
     nom_clean = _remove_accents(nom).lower().replace(" ", "").replace("-", "")
     prenom_clean = _remove_accents(prenom).lower().replace(" ", "").replace("-", "")
@@ -47,6 +68,7 @@ def _generate_login(nom: str, prenom: str, existing_logins: set) -> str:
 def create_single_user(payload: UserCreate, admin: AuthUser = Depends(get_current_admin)):
     try:
         username = payload.username.strip()
+        niveau = _validate_niveau(payload.niveau) or ""
         with get_db() as conn:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
                 cur.execute("SELECT username FROM users WHERE username = %s", (username,))
@@ -54,12 +76,13 @@ def create_single_user(payload: UserCreate, admin: AuthUser = Depends(get_curren
                     raise HTTPException(status_code=400, detail=f"L'utilisateur '{username}' existe déjà.")
 
                 cur.execute(
-                    "INSERT INTO users (username, password_hash, nom, prenom, admin_id, must_change_password) VALUES (%s, %s, %s, %s, %s, TRUE)",
+                    "INSERT INTO users (username, password_hash, nom, prenom, niveau, admin_id, must_change_password) VALUES (%s, %s, %s, %s, %s, %s, TRUE)",
                     (
                         username,
                         _hash_password(username),
                         payload.nom.strip() if payload.nom else "",
                         payload.prenom.strip() if payload.prenom else "",
+                        niveau,
                         admin.admin_id
                     )
                 )
@@ -75,7 +98,7 @@ def list_users(admin: AuthUser = Depends(get_current_admin)):
         with get_db() as conn:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
                 cur.execute(
-                    """SELECT u.username, u.nom, u.prenom, u.must_change_password, u.ai_disabled,
+                    """SELECT u.username, u.nom, u.prenom, u.niveau, u.must_change_password, u.ai_disabled,
                               COALESCE(rc.consent_given, FALSE) AS consent_given
                        FROM users u
                        LEFT JOIN research_consent rc ON rc.user_id = u.username
@@ -117,7 +140,7 @@ def set_research_consent(username: str, payload: ConsentUpdate, admin: AuthUser 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors de la mise à jour du consentement: {str(e)}")
 
-ALLOWED_USER_UPDATE_FIELDS = {"nom", "prenom", "username", "ai_disabled"}
+ALLOWED_USER_UPDATE_FIELDS = {"nom", "prenom", "username", "ai_disabled", "niveau"}
 
 @router.put("/users/{username}")
 def update_user(username: str, payload: UserUpdate, admin: AuthUser = Depends(get_current_admin)):
@@ -132,6 +155,8 @@ def update_user(username: str, payload: UserUpdate, admin: AuthUser = Depends(ge
             if not new_username:
                 raise HTTPException(status_code=400, detail="L'identifiant ne peut pas être vide.")
 
+        niveau = _validate_niveau(update_data.get("niveau"))
+
         with get_db() as conn:
             with conn.cursor() as cur:
                 if new_username is not None and new_username != username:
@@ -140,8 +165,8 @@ def update_user(username: str, payload: UserUpdate, admin: AuthUser = Depends(ge
                         raise HTTPException(status_code=400, detail=f"L'identifiant '{new_username}' existe déjà.")
 
                 cur.execute(
-                    "UPDATE users SET nom = COALESCE(%s, nom), prenom = COALESCE(%s, prenom), username = COALESCE(%s, username), ai_disabled = COALESCE(%s, ai_disabled) WHERE username = %s AND admin_id = %s",
-                    (update_data.get("nom"), update_data.get("prenom"), new_username, update_data.get("ai_disabled"), username, admin.admin_id)
+                    "UPDATE users SET nom = COALESCE(%s, nom), prenom = COALESCE(%s, prenom), username = COALESCE(%s, username), ai_disabled = COALESCE(%s, ai_disabled), niveau = COALESCE(%s, niveau) WHERE username = %s AND admin_id = %s",
+                    (update_data.get("nom"), update_data.get("prenom"), new_username, update_data.get("ai_disabled"), niveau, username, admin.admin_id)
                 )
                 if cur.rowcount == 0:
                     raise HTTPException(status_code=404, detail=f"Utilisateur '{username}' non trouvé.")
@@ -188,12 +213,14 @@ def reset_password(payload: UserPasswordReset, admin: AuthUser = Depends(get_cur
 async def import_users(file: UploadFile = File(...), admin: AuthUser = Depends(get_current_admin)):
     """
     Importe des utilisateurs à partir d'un fichier CSV.
-    Format attendu : nom, prenom (les colonnes suivantes, le cas échéant, sont ignorées).
+    Format attendu : nom, prenom, niveau (colonne niveau optionnelle : T/P/vide, les colonnes
+    suivantes, le cas échéant, sont ignorées).
     Le login est généré automatiquement (mêmes règles que le script prepare_import.py : 6 premières lettres
     du nom + 1ère lettre du prénom, sans accents, suffixe numérique en cas de collision) et sert aussi de
     mot de passe initial. L'admin peut ensuite modifier ce login via le formulaire d'édition de l'élève.
     Le fichier représente l'état complet de la liste des élèves : les élèves déjà présents (même nom + prénom) sont
-    conservés tels quels (mot de passe et historique intacts), les élèves absents du fichier sont créés,
+    conservés (mot de passe et historique intacts) — leur niveau est mis à jour uniquement si le fichier
+    contient la colonne niveau, sinon il reste inchangé —, les élèves absents du fichier sont créés,
     et les élèves existants qui ne sont PAS dans le fichier sont supprimés (avec leur historique).
     """
     if not file.filename.endswith('.csv'):
@@ -214,8 +241,10 @@ async def import_users(file: UploadFile = File(...), admin: AuthUser = Depends(g
 
         first_row = rows[0]
         start_index = 0
-        if any(h.lower() in ['login', 'identifiant', 'mot de passe', 'password', 'nom', 'prénom'] for h in first_row):
+        if any(h.lower() in ['login', 'identifiant', 'mot de passe', 'password', 'nom', 'prénom', 'niveau', 'classe'] for h in first_row):
             start_index = 1
+
+        csv_has_niveau_column = any(len(row) >= 3 for row in rows[start_index:])
 
         parsed_rows = []
         for row in rows[start_index:]:
@@ -224,7 +253,8 @@ async def import_users(file: UploadFile = File(...), admin: AuthUser = Depends(g
             nom, prenom = [item.strip() for item in row[:2]]
             if not nom or not prenom:
                 continue
-            parsed_rows.append((nom, prenom))
+            niveau = _normalize_niveau(row[2]) if len(row) >= 3 else ""
+            parsed_rows.append((nom, prenom, niveau))
 
         if not parsed_rows:
             raise HTTPException(
@@ -240,7 +270,7 @@ async def import_users(file: UploadFile = File(...), admin: AuthUser = Depends(g
                 cur.execute("SELECT username FROM users")
                 existing_logins = {row[0] for row in cur.fetchall()}
 
-                for nom, prenom in parsed_rows:
+                for nom, prenom, niveau in parsed_rows:
                     cur.execute(
                         "SELECT username FROM users WHERE admin_id = %s AND LOWER(nom) = LOWER(%s) AND LOWER(prenom) = LOWER(%s)",
                         (admin.admin_id, nom, prenom)
@@ -249,12 +279,17 @@ async def import_users(file: UploadFile = File(...), admin: AuthUser = Depends(g
                     if row:
                         kept_usernames.add(row[0])
                         kept_count += 1
+                        if csv_has_niveau_column:
+                            cur.execute(
+                                "UPDATE users SET niveau = %s WHERE username = %s AND admin_id = %s",
+                                (niveau, row[0], admin.admin_id)
+                            )
                         continue
 
                     login = _generate_login(nom, prenom, existing_logins)
                     cur.execute(
-                        "INSERT INTO users (username, password_hash, nom, prenom, admin_id, must_change_password) VALUES (%s, %s, %s, %s, %s, TRUE)",
-                        (login, _hash_password(login), nom, prenom, admin.admin_id)
+                        "INSERT INTO users (username, password_hash, nom, prenom, niveau, admin_id, must_change_password) VALUES (%s, %s, %s, %s, %s, %s, TRUE)",
+                        (login, _hash_password(login), nom, prenom, niveau, admin.admin_id)
                     )
                     kept_usernames.add(login)
                     created_count += 1
@@ -391,6 +426,33 @@ def _make_attempt(events, attempt_number):
         'total_duration': total_duration,
     }
 
+@router.get("/ai-settings", response_model=AdminAiSettings)
+def get_ai_settings(admin: AuthUser = Depends(get_current_admin)):
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT ai_disabled, ai_locked_by_super FROM admins WHERE id = %s", (admin.admin_id,))
+                row = cur.fetchone()
+        return {"ai_disabled": bool(row[0]) if row else False, "ai_locked_by_super": bool(row[1]) if row else False}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/ai-settings")
+def update_ai_settings(payload: AdminAiToggle, admin: AuthUser = Depends(get_current_admin)):
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT ai_locked_by_super FROM admins WHERE id = %s", (admin.admin_id,))
+                row = cur.fetchone()
+                if row and row[0]:
+                    raise HTTPException(status_code=403, detail="L'assistant IA a été désactivé par l'administrateur : vous ne pouvez pas modifier ce réglage.")
+                cur.execute("UPDATE admins SET ai_disabled = %s WHERE id = %s", (payload.ai_disabled, admin.admin_id))
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # === Super-admin routes ===
 
 @router.get("/admins", response_model=list[AdminOut])
@@ -399,7 +461,7 @@ def list_admins(superadmin: AuthUser = Depends(get_current_superadmin)):
         with get_db() as conn:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
                 cur.execute("""
-                    SELECT a.id, a.username, a.nom, a.prenom, a.etablissement, a.email, a.is_super, a.must_change_password,
+                    SELECT a.id, a.username, a.nom, a.prenom, a.etablissement, a.email, a.is_super, a.must_change_password, a.ai_locked_by_super,
                            (SELECT COUNT(*) FROM users u WHERE u.admin_id = a.id) as nb_students,
                            (SELECT COUNT(*) FROM exercises e WHERE e.admin_id = a.id) as nb_exercises,
                            (SELECT COUNT(*) FROM user_progress up
@@ -420,6 +482,20 @@ def list_admins(superadmin: AuthUser = Depends(get_current_superadmin)):
                     d['last_activity'] = d['last_activity'].isoformat() if d['last_activity'] else None
                     result.append(d)
                 return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/admins/{admin_id}/ai-lock")
+def set_admin_ai_lock(admin_id: int, payload: AdminAiLock, superadmin: AuthUser = Depends(get_current_superadmin)):
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("UPDATE admins SET ai_locked_by_super = %s WHERE id = %s AND is_super = FALSE", (payload.locked, admin_id))
+                if cur.rowcount == 0:
+                    raise HTTPException(status_code=404, detail="Admin non trouvé.")
+        return {"success": True}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

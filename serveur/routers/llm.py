@@ -22,13 +22,24 @@ def _resolve_admin_id(current_user: AuthUser) -> int:
     return admin_id
 
 def _check_ai_access(current_user: AuthUser):
-    if current_user.role != "student":
-        return
     with get_db() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT ai_disabled FROM users WHERE username = %s", (current_user.username,))
+            if current_user.role != "student":
+                cur.execute("SELECT ai_locked_by_super FROM admins WHERE id = %s", (current_user.admin_id,))
+                row = cur.fetchone()
+                if row and row[0]:
+                    raise HTTPException(status_code=403, detail="Assistant IA désactivé par l'administrateur.")
+                return
+            cur.execute(
+                """SELECT u.ai_disabled, a.ai_disabled, a.ai_locked_by_super
+                   FROM users u JOIN admins a ON a.id = u.admin_id
+                   WHERE u.username = %s""",
+                (current_user.username,)
+            )
             row = cur.fetchone()
-            if row and row[0]:
+            if row and row[2]:
+                raise HTTPException(status_code=403, detail="Assistant IA désactivé par l'administrateur.")
+            if row and (row[0] or row[1]):
                 raise HTTPException(status_code=403, detail="Assistant IA désactivé pour cet élève.")
 
 @router.post('/request')

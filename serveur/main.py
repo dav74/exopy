@@ -94,6 +94,22 @@ def _migrate():
                     cur.execute("ALTER TABLE users ADD COLUMN ai_disabled BOOLEAN NOT NULL DEFAULT FALSE")
                     logging.info("Database migration: ai_disabled column added to users.")
 
+                cur.execute("SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'admins' AND column_name = 'ai_disabled')")
+                if not cur.fetchone()[0]:
+                    cur.execute("ALTER TABLE admins ADD COLUMN ai_disabled BOOLEAN NOT NULL DEFAULT FALSE")
+                    logging.info("Database migration: ai_disabled column added to admins.")
+
+                cur.execute("SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'admins' AND column_name = 'ai_locked_by_super')")
+                if not cur.fetchone()[0]:
+                    cur.execute("ALTER TABLE admins ADD COLUMN ai_locked_by_super BOOLEAN NOT NULL DEFAULT FALSE")
+                    logging.info("Database migration: ai_locked_by_super column added to admins.")
+
+                cur.execute("SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'niveau')")
+                if not cur.fetchone()[0]:
+                    cur.execute("ALTER TABLE users ADD COLUMN niveau VARCHAR(1) NOT NULL DEFAULT ''")
+                    cur.execute("ALTER TABLE users ADD CONSTRAINT users_niveau_check CHECK (niveau IN ('', 'T', 'P'))")
+                    logging.info("Database migration: niveau column added to users.")
+
                 cur.execute("SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'user_progress' AND column_name = 'code')")
                 if not cur.fetchone()[0]:
                     cur.execute("ALTER TABLE user_progress ADD COLUMN code TEXT")

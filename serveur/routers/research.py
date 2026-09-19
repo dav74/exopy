@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
-from core.security import get_current_admin, AuthUser
+from core.security import get_current_admin, get_current_superadmin, AuthUser
 from core.database import get_db
 from datetime import datetime, timezone
 import psycopg2.extras
@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api/research", tags=["research"])
 
 PROGRESS_FIELD_KEYS = {
     "exercise_id", "exercise_titre", "niveau", "status", "error_type",
-    "duration", "ai_used", "ai_disabled", "code", "ai_response",
+    "duration", "ai_used", "ai_disabled", "code", "ai_response", "niveau_eleve", "admin",
 }
 
 # Champs exportés avant l'introduction du choix de champs : conservés comme
@@ -66,13 +66,15 @@ def _build_ai_response_map(ai_rows: list[dict]) -> dict[int, str]:
     return response_map
 
 
-def _build_progress_records(pseudo_map: dict[str, str], ai_disabled_map: dict[str, bool], progress_rows: list[dict], ai_response_map: dict[int, str], fields: set[str]) -> list[dict]:
+def _build_progress_records(pseudo_map: dict[str, str], ai_disabled_map: dict[str, bool], niveau_map: dict[str, str], progress_rows: list[dict], ai_response_map: dict[int, str], fields: set[str], admin_label: str = "") -> list[dict]:
     records = []
     for r in progress_rows:
         rec = {
             "pseudo_id": pseudo_map[r['user_id']],
             "date": r['created_at'].isoformat(),
         }
+        if "admin" in fields:
+            rec["admin"] = admin_label
         if "exercise_id" in fields:
             rec["exercise_id"] = r['exercise_id']
         if "exercise_titre" in fields:
@@ -93,6 +95,8 @@ def _build_progress_records(pseudo_map: dict[str, str], ai_disabled_map: dict[st
             rec["code"] = r['code']
         if "ai_response" in fields:
             rec["ai_response"] = ai_response_map.get(r['id'])
+        if "niveau_eleve" in fields:
+            rec["niveau_eleve"] = niveau_map.get(r['user_id'], "")
         records.append(rec)
     return records
 
@@ -119,8 +123,10 @@ def _build_data_dictionary(nb_students: int, fields: set[str]) -> str:
         "ai_disabled": "  ai_disabled     - yes | no : l'assistant IA est-il désactivé pour cet élève par l'enseignant",
         "code": "  code            - code source proposé par l'élève pour cette tentative (texte brut)",
         "ai_response": "  ai_response     - réponse texte de l'assistant IA suite à cette tentative, si sollicité (texte brut)",
+        "admin": "  admin           - identifiant de l'enseignant (admin) dont l'élève dépend",
+        "niveau_eleve": "  niveau_eleve    - niveau scolaire de l'élève : T (Terminale) / P (Première) / vide si non renseigné",
     }
-    for key in ("exercise_id", "exercise_titre", "niveau", "status", "error_type", "duration", "ai_used", "ai_disabled", "code", "ai_response"):
+    for key in ("admin", "exercise_id", "exercise_titre", "niveau", "status", "error_type", "duration", "ai_used", "ai_disabled", "code", "ai_response", "niveau_eleve"):
         if key in fields:
             lines.append(field_docs[key])
 
@@ -148,98 +154,150 @@ def _build_data_dictionary(nb_students: int, fields: set[str]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _collect_admin_records(cur, admin_id: int, admin_label: str, selected_fields: set[str]) -> tuple[int, list[dict]]:
+    """Retourne (nb élèves consentants, tentatives pseudonymisées) pour un admin."""
+    cur.execute(
+        """SELECT u.username FROM users u
+           JOIN research_consent rc ON rc.user_id = u.username
+           WHERE u.admin_id = %s AND rc.consent_given = TRUE AND rc.revoked_at IS NULL""",
+        (admin_id,)
+    )
+    consenting = [r['username'] for r in cur.fetchall()]
+    if not consenting:
+        return 0, []
+
+    pseudo_map = _ensure_pseudonyms(cur, admin_id, consenting)
+
+    ai_disabled_map = {}
+    if "ai_disabled" in selected_fields:
+        cur.execute(
+            "SELECT username, ai_disabled FROM users WHERE username = ANY(%s)",
+            (consenting,)
+        )
+        ai_disabled_map = {r['username']: r['ai_disabled'] for r in cur.fetchall()}
+
+    niveau_map = {}
+    if "niveau_eleve" in selected_fields:
+        cur.execute(
+            "SELECT username, niveau FROM users WHERE username = ANY(%s)",
+            (consenting,)
+        )
+        niveau_map = {r['username']: r['niveau'] for r in cur.fetchall()}
+
+    cur.execute(
+        """SELECT up.id, up.user_id, up.exercise_id, up.session_id, e.titre, e.niveau, up.status,
+                  up.error_type, up.duration, up.code, up.created_at
+           FROM user_progress up
+           JOIN exercises e ON e.id = up.exercise_id
+           WHERE up.user_id = ANY(%s) AND e.admin_id = %s AND up.status IN ('success', 'failure')
+           ORDER BY up.user_id, up.exercise_id, up.created_at""",
+        (consenting, admin_id)
+    )
+    progress_rows = cur.fetchall()
+
+    # ai_used est dérivé du même lien exact que ai_response (progress_id, plutôt que
+    # la colonne up.ai_used, mise à jour a posteriori par un appel réseau distinct côté
+    # client, non rejoué en cas d'échec, et donc peu fiable) pour que les deux champs
+    # restent toujours cohérents entre eux.
+    ai_response_map = {}
+    if "ai_response" in selected_fields or "ai_used" in selected_fields:
+        cur.execute(
+            """SELECT progress_id, ai_response
+               FROM ai_interactions
+               WHERE user_id = ANY(%s) AND progress_id IS NOT NULL""",
+            (consenting,)
+        )
+        ai_response_map = _build_ai_response_map(cur.fetchall())
+
+    records = _build_progress_records(pseudo_map, ai_disabled_map, niveau_map, progress_rows, ai_response_map, selected_fields, admin_label)
+    return len(consenting), records
+
+
+def _build_export_response(nb_students: int, records: list[dict], selected_fields: set[str], format: str) -> Response:
+    data_dictionary = _build_data_dictionary(nb_students, selected_fields)
+
+    if format == "json":
+        payload = {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "nb_students": nb_students,
+            "progress_events": records,
+            "data_dictionary": data_dictionary
+        }
+        return Response(
+            content=json.dumps(payload, indent=2, ensure_ascii=False),
+            media_type="application/json",
+            headers={"Content-Disposition": "attachment; filename=exopy_research_export.json"}
+        )
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        s = io.StringIO()
+        if records:
+            writer = csv.DictWriter(s, fieldnames=list(records[0].keys()))
+            writer.writeheader()
+            writer.writerows(records)
+        zf.writestr("progress_events.csv", s.getvalue())
+        zf.writestr("data_dictionary.txt", data_dictionary)
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": "attachment; filename=exopy_research_export.zip"}
+    )
+
+
+def _select_fields(fields: list[str], allow_admin: bool) -> set[str]:
+    allowed = PROGRESS_FIELD_KEYS if allow_admin else PROGRESS_FIELD_KEYS - {"admin"}
+    return (set(fields) & allowed) or set(DEFAULT_FIELDS)
+
+
 @router.get('/export')
 def export_research_data(
     format: str = Query("csv", pattern="^(csv|json)$"),
     fields: list[str] = Query([]),
     admin: AuthUser = Depends(get_current_admin)
 ):
-    admin_id = admin.admin_id
-    selected_fields = set(fields) & PROGRESS_FIELD_KEYS
-    if not selected_fields:
-        selected_fields = set(DEFAULT_FIELDS)
+    selected_fields = _select_fields(fields, allow_admin=False)
     try:
         with get_db() as conn:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                cur.execute(
-                    """SELECT u.username FROM users u
-                       JOIN research_consent rc ON rc.user_id = u.username
-                       WHERE u.admin_id = %s AND rc.consent_given = TRUE AND rc.revoked_at IS NULL""",
-                    (admin_id,)
-                )
-                consenting = [r['username'] for r in cur.fetchall()]
+                nb_students, records = _collect_admin_records(cur, admin.admin_id, admin.username, selected_fields)
+        if not nb_students:
+            raise HTTPException(status_code=400, detail="Aucun élève n'a de consentement recherche valide pour le moment.")
+        return _build_export_response(nb_students, records, selected_fields, format)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-                if not consenting:
-                    raise HTTPException(status_code=400, detail="Aucun élève n'a de consentement recherche valide pour le moment.")
 
-                pseudo_map = _ensure_pseudonyms(cur, admin_id, consenting)
+@router.get('/export/admins')
+def export_research_data_all_admins(
+    format: str = Query("csv", pattern="^(csv|json)$"),
+    fields: list[str] = Query([]),
+    admin_ids: list[int] = Query([]),
+    superadmin: AuthUser = Depends(get_current_superadmin)
+):
+    """Export de recherche agrégé sur les admins (profs) choisis, réservé au super-admin.
+    Sans `admin_ids`, tous les admins non super sont inclus."""
+    selected_fields = _select_fields(fields, allow_admin=True)
+    try:
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                if admin_ids:
+                    cur.execute("SELECT id, username FROM admins WHERE is_super = FALSE AND id = ANY(%s) ORDER BY id", (admin_ids,))
+                else:
+                    cur.execute("SELECT id, username FROM admins WHERE is_super = FALSE ORDER BY id")
+                admins = cur.fetchall()
 
-                ai_disabled_map = {}
-                if "ai_disabled" in selected_fields:
-                    cur.execute(
-                        "SELECT username, ai_disabled FROM users WHERE username = ANY(%s)",
-                        (consenting,)
-                    )
-                    ai_disabled_map = {r['username']: r['ai_disabled'] for r in cur.fetchall()}
-
-                cur.execute(
-                    """SELECT up.id, up.user_id, up.exercise_id, up.session_id, e.titre, e.niveau, up.status,
-                              up.error_type, up.duration, up.code, up.created_at
-                       FROM user_progress up
-                       JOIN exercises e ON e.id = up.exercise_id
-                       WHERE up.user_id = ANY(%s) AND e.admin_id = %s AND up.status IN ('success', 'failure')
-                       ORDER BY up.user_id, up.exercise_id, up.created_at""",
-                    (consenting, admin_id)
-                )
-                progress_rows = cur.fetchall()
-
-                # ai_used est dérivé du même lien exact que ai_response (progress_id, plutôt que
-                # la colonne up.ai_used, mise à jour a posteriori par un appel réseau distinct côté
-                # client, non rejoué en cas d'échec, et donc peu fiable) pour que les deux champs
-                # restent toujours cohérents entre eux.
-                ai_response_map = {}
-                if "ai_response" in selected_fields or "ai_used" in selected_fields:
-                    cur.execute(
-                        """SELECT progress_id, ai_response
-                           FROM ai_interactions
-                           WHERE user_id = ANY(%s) AND progress_id IS NOT NULL""",
-                        (consenting,)
-                    )
-                    ai_rows = cur.fetchall()
-                    ai_response_map = _build_ai_response_map(ai_rows)
-
-        progress_records = _build_progress_records(pseudo_map, ai_disabled_map, progress_rows, ai_response_map, selected_fields)
-
-        data_dictionary = _build_data_dictionary(len(consenting), selected_fields)
-
-        if format == "json":
-            payload = {
-                "generated_at": datetime.now(timezone.utc).isoformat(),
-                "nb_students": len(consenting),
-                "progress_events": progress_records,
-                "data_dictionary": data_dictionary
-            }
-            return Response(
-                content=json.dumps(payload, indent=2, ensure_ascii=False),
-                media_type="application/json",
-                headers={"Content-Disposition": "attachment; filename=exopy_research_export.json"}
-            )
-
-        buffer = io.BytesIO()
-        with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-            s = io.StringIO()
-            if progress_records:
-                writer = csv.DictWriter(s, fieldnames=list(progress_records[0].keys()))
-                writer.writeheader()
-                writer.writerows(progress_records)
-            zf.writestr("progress_events.csv", s.getvalue())
-            zf.writestr("data_dictionary.txt", data_dictionary)
-        buffer.seek(0)
-        return Response(
-            content=buffer.getvalue(),
-            media_type="application/zip",
-            headers={"Content-Disposition": "attachment; filename=exopy_research_export.zip"}
-        )
+                total_students = 0
+                all_records: list[dict] = []
+                for a in admins:
+                    n, recs = _collect_admin_records(cur, a['id'], a['username'], selected_fields)
+                    total_students += n
+                    all_records.extend(recs)
+        if not total_students:
+            raise HTTPException(status_code=400, detail="Aucun élève n'a de consentement recherche valide pour les admins sélectionnés.")
+        return _build_export_response(total_students, all_records, selected_fields, format)
     except HTTPException:
         raise
     except Exception as e:

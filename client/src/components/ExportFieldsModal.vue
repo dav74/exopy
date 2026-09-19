@@ -1,9 +1,10 @@
 <script setup>
-import { ref } from "vue";
+import { ref, computed } from "vue";
 
 const props = defineProps({
   isDarkMode: { type: Boolean, default: false },
   selectedFields: { type: Array, default: () => [] },
+  showAdminField: { type: Boolean, default: false },
 });
 const emit = defineEmits(["close", "apply"]);
 
@@ -17,6 +18,8 @@ const toggle = (key) => {
   local.value = next;
 };
 
+const adminField = { key: "admin", label: "Identifiant de l'enseignant (admin)" };
+
 const progressFields = [
   { key: "exercise_id", label: "Identifiant de l'exercice" },
   { key: "exercise_titre", label: "Titre de l'exercice" },
@@ -26,7 +29,10 @@ const progressFields = [
   { key: "duration", label: "Durée depuis la dernière action" },
   { key: "ai_used", label: "Assistant IA sollicité (oui/non)" },
   { key: "ai_disabled", label: "Assistant IA désactivé par le prof (oui/non)" },
+  { key: "niveau_eleve", label: "Niveau scolaire de l'élève (Terminale/Première)" },
 ];
+
+const visibleProgressFields = computed(() => props.showAdminField ? [adminField, ...progressFields] : progressFields);
 
 const sensitiveFields = [
   { key: "code", label: "Code proposé par l'élève" },
@@ -75,7 +81,7 @@ const apply = () => {
           <h3 :class="['text-sm font-black uppercase tracking-widest mb-1', isDarkMode ? 'text-zinc-300' : 'text-zinc-600']">Tentatives de soumission</h3>
           <p :class="['text-[11px] font-mono mb-3', isDarkMode ? 'text-zinc-600' : 'text-zinc-400']">→ fichier progress_events.csv</p>
           <div class="space-y-2">
-            <div v-for="f in progressFields" :key="f.key"
+            <div v-for="f in visibleProgressFields" :key="f.key"
                  :class="['flex items-center justify-between gap-4 p-3 rounded-xl border cursor-pointer transition-colors', isDarkMode ? 'bg-zinc-800/50 border-zinc-800 hover:bg-zinc-800' : 'bg-zinc-50 border-zinc-100 hover:bg-zinc-100']"
                  @click="toggle(f.key)">
               <div>

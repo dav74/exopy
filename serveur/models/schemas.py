@@ -91,11 +91,13 @@ class UserInfo(BaseModel):
     username: str
     nom: str | None = None
     prenom: str | None = None
+    niveau: str | None = None
     ai_enabled: bool = False
     role: str = "student"
     must_change_password: bool = False
     consent_given: bool = False
     ai_disabled: bool = False
+    ai_locked_by_super: bool = False
 
 class ConsentUpdate(BaseModel):
     consent_given: bool
@@ -104,12 +106,14 @@ class UserCreate(BaseModel):
     username: str
     nom: str | None = None
     prenom: str | None = None
+    niveau: str | None = None
 
 class UserUpdate(BaseModel):
     username: str | None = None
     nom: str | None = None
     prenom: str | None = None
     ai_disabled: bool | None = None
+    niveau: str | None = None
 
 class UserPasswordReset(BaseModel):
     username: str
@@ -130,6 +134,16 @@ class AdminUpdate(BaseModel):
 
 class AdminPasswordReset(BaseModel):
     admin_id: int
+
+class AdminAiToggle(BaseModel):
+    ai_disabled: bool
+
+class AdminAiSettings(BaseModel):
+    ai_disabled: bool
+    ai_locked_by_super: bool = False
+
+class AdminAiLock(BaseModel):
+    locked: bool
 
 class AdminPasswordChange(BaseModel):
     current_password: str
@@ -167,6 +181,7 @@ class AdminOut(BaseModel):
     email: str | None = None
     is_super: bool
     must_change_password: bool = False
+    ai_locked_by_super: bool = False
     nb_students: int = 0
     nb_exercises: int = 0
     nb_ai_requests: int = 0

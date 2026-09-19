@@ -75,7 +75,7 @@ async def get_me(current_user: AuthUser = Depends(get_current_user)):
         try:
             with get_db() as conn:
                 with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                    cur.execute("SELECT nom, prenom, must_change_password FROM admins WHERE id = %s", (current_user.admin_id,))
+                    cur.execute("SELECT nom, prenom, must_change_password, ai_locked_by_super FROM admins WHERE id = %s", (current_user.admin_id,))
                     row = cur.fetchone()
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
@@ -83,7 +83,8 @@ async def get_me(current_user: AuthUser = Depends(get_current_user)):
             "username": current_user.username,
             "nom": row['nom'] if row else "",
             "prenom": row['prenom'] if row else "",
-            "ai_enabled": ai_enabled,
+            "ai_enabled": ai_enabled and not (row and row['ai_locked_by_super']),
+            "ai_locked_by_super": bool(row['ai_locked_by_super']) if row else False,
             "role": current_user.role,
             "must_change_password": bool(row['must_change_password']) if row else False,
         }
@@ -92,13 +93,18 @@ async def get_me(current_user: AuthUser = Depends(get_current_user)):
         with get_db() as conn:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
                 cur.execute(
-                    "SELECT username, nom, prenom, must_change_password, ai_disabled FROM users WHERE username = %s",
+                    """SELECT u.username, u.nom, u.prenom, u.must_change_password, u.ai_disabled, a.ai_disabled AS admin_ai_disabled, a.ai_locked_by_super
+                       FROM users u JOIN admins a ON a.id = u.admin_id
+                       WHERE u.username = %s""",
                     (current_user.username,)
                 )
                 row = cur.fetchone()
                 if not row:
                     return {"username": current_user.username, "nom": "", "prenom": "", "ai_enabled": False, "role": "student"}
-                return dict(row) | {"ai_enabled": ai_enabled and not row['ai_disabled'], "role": "student"}
+                data = dict(row)
+                admin_ai_disabled = data.pop("admin_ai_disabled")
+                ai_locked = data.pop("ai_locked_by_super")
+                return data | {"ai_enabled": ai_enabled and not row['ai_disabled'] and not admin_ai_disabled and not ai_locked, "role": "student"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
